@@ -1,5 +1,6 @@
 from os import walk
 from os.path import join
+
 from cx_Freeze import setup, Executable
 
 
@@ -14,7 +15,7 @@ def gen_data_files(source_dirs):
 setup(
     name='quirkey',
     version='0.0.1',
-    options={"build_exe": {'include_files': gen_data_files(['assets', 'quirks'])}},
+    options={"build_exe": {'include_files': gen_data_files(['assets', 'keyboards', 'quirks'])}},
     executables=[
         Executable("console.py"),
         Executable("keyboard.py", base="Win32GUI"),
