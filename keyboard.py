@@ -1,17 +1,21 @@
 import os
 import sys
 from importlib import import_module
+from io import BytesIO
 from itertools import product
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 from cocos import scene
 from cocos.batch import BatchNode
 from cocos.director import director
 from cocos.layer import ColorLayer
 from cocos.sprite import Sprite
+from pyglet import image
 from pyglet.resource import ResourceNotFoundException
 from pyglet.window import key, mouse
 from wand.image import Image
+
+import pyperclip
 
 sys.path.append(os.path.abspath(os.getcwd()))
 
@@ -32,16 +36,17 @@ class Key(Sprite):
 
 class Keyboard(ColorLayer):
 
-    def __init__(self):
+    def __init__(self, layout_name: str):
         self.is_event_handler = True
 
         # super boring initialization stuff (bluh bluh)
-        layout = import_module('keyboards.hs')
+        layout = import_module(f'keyboards.{layout_name}')
         self.board_height = layout.board_height if hasattr(layout, 'board_height') else 4
         self.board_width = layout.board_width if hasattr(layout, 'board_width') else 13  # homestuck is alive!!1
         self.screen_height = layout.screen_height if hasattr(layout, 'screen_height') else 4
         self.cell_size = layout.cell_size if hasattr(layout, 'cell_size') else 64
         self.cell_spacing = layout.cell_spacing if hasattr(layout, 'cell_spacing') else 4
+        self.border_width = layout.border_width if hasattr(layout, 'border_width') else 16
         self.background_color = layout.background_color if hasattr(layout, 'background_color') else (204, 204, 204)
         self.key_color = layout.key_color if hasattr(layout, 'key_color') else (220, 220, 220)
         self.highlight_color = layout.highlight_color if hasattr(layout, 'highlight_color') else (255, 255, 255)
@@ -49,22 +54,33 @@ class Keyboard(ColorLayer):
         self.key_press_color = layout.key_press_color if hasattr(layout, 'key_press_color') else self.key_color
         self.key_press_scale = layout.key_press_scale if hasattr(layout, 'key_press_scale') else 1.25
         self.default_key = layout.default_key if hasattr(layout, 'default_key') else None
-        self.layout = layout.layout if hasattr(layout, 'layout') else [[[''] * self.board_width] * self.board_height]
+        self.backspace_key = layout.backspace_key if hasattr(layout, 'backspace_key') else 'backspace'
+        self.enter_key = layout.enter_key if hasattr(layout, 'enter_key') else 'enter'
+        self.layout_switch_keys = layout.layout_switch_keys if hasattr(layout, 'layout_switch_keys') else None
+        self.keyboard_switch_keys = layout.keyboard_switch_keys if hasattr(layout, 'keyboard_switch_keys') else None
+        self.layout = self.extend_layout(layout.layout if hasattr(layout, 'layout') else [[]])
         self.sublayout = 0
-        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') \
-            else layout.__name__[layout.__name__.find('.')+1:]
-
-        window_width = (self.board_width + 1) * (self.cell_size + self.cell_spacing)
-        window_height = (self.board_height + self.screen_height + 1) * (self.cell_size + self.cell_spacing)
-        director.init(width=window_width, height=window_height, autoscale=False)
+        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') else layout_name
+        self.window_width = self.board_width * (self.cell_size + self.cell_spacing) + self.border_width * 2
+        self.window_height = (self.board_height + self.screen_height) * (self.cell_size + self.cell_spacing) \
+            + self.border_width * 2
+        director.init(width=self.window_width, height=self.window_height, autoscale=False)
         super().__init__(*self.background_color, 1000)
 
+        self.screen_image = None
         self.image_buffer = None
+        self.image_history = []
+        self.next_key_position = [0, 0]
         self.clicked_key = None
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
+        self.screen = Sprite('assets/util/cell.png', color=self.key_color, position=(
+            (self.window_width / 2),
+            (self.board_height + self.screen_height / 2) * (self.cell_size + self.cell_spacing) + self.border_width))
+        self.screen.scale_x = (self.window_width - self.border_width * 2) / self.screen.width
+        self.screen.scale_y = (self.cell_size + self.cell_spacing) * self.screen_height / self.screen.height
         self.highlight = Sprite('assets/util/cell.png', color=self.highlight_color, opacity=0)
         self.highlight.scale = self.cell_size / self.highlight.width
         self.selection = Sprite('assets/util/cell.png', color=self.key_press_color, opacity=0)
@@ -75,6 +91,7 @@ class Keyboard(ColorLayer):
         self.add(self.highlight, z=2)
         self.add(self.keys, z=3)
         self.add(self.active_key, z=3)
+        self.board.add(self.screen)
         self.active_key.add(self.selection)
 
         for row in range(self.board_height):
@@ -107,19 +124,19 @@ class Keyboard(ColorLayer):
         director.run(scene.Scene(self))
 
     def get_coordinates(self, x: float, y: float) -> Tuple[int, int]:
-        window_width, window_height = director.get_window_size()
         x, y = director.get_virtual_coordinates(x, y)
-        col = round((x - window_width / 2) / (self.cell_size + self.cell_spacing) + (self.board_width - 1) / 2)
+        col = round((x - self.window_width / 2) / (self.cell_size + self.cell_spacing)
+                    + (self.board_width - 1) / 2)
         row = round((self.board_height - self.screen_height - 1) / 2
-                    - (y - window_height / 2) / (self.cell_size + self.cell_spacing))
+                    - (y - self.window_height / 2) / (self.cell_size + self.cell_spacing))
         return row, col
 
     def get_position(self, pos: Tuple[int, int]) -> Tuple[float, float]:
-        window_width, window_height = director.get_window_size()
         row, col = pos
-        x = (col - (self.board_width - 1) / 2) * (self.cell_size + self.cell_spacing) + window_width / 2
+        x = (col - (self.board_width - 1) / 2) \
+            * (self.cell_size + self.cell_spacing) + self.window_width / 2
         y = ((self.board_height - self.screen_height - 1) / 2 - row) \
-            * (self.cell_size + self.cell_spacing) + window_height / 2
+            * (self.cell_size + self.cell_spacing) + self.window_height / 2
         return x, y
 
     # From now on we shall unanimously assume that the first coordinate corresponds to row number (AKA vertical axis).
@@ -169,21 +186,74 @@ class Keyboard(ColorLayer):
 
         self.selected_key = None
 
-    def copy_key(self, pos: Tuple[int, int]):
+    def copy_key(self, pos: Tuple[int, int]) -> None:
         path = self.get_key(pos).get_path()
         Image(filename=path).save(filename='clipboard:')
 
-    def add_key(self, pos: Tuple[int, int]):
-        path = self.get_key(pos).get_path()
-        if self.image_buffer is None:
-            self.image_buffer = Image(filename=path)
+    def add_key(self, pos: Tuple[int, int]) -> None:
+        pressed_key = self.get_key(pos)
+        if pressed_key.name == self.backspace_key:
+            if len(self.image_history):
+                self.image_buffer, self.next_key_position = self.image_history.pop()
         else:
-            key_image = Image(filename=path)
-            new_buffer = Image(width=self.image_buffer.width + key_image.width, height=self.image_buffer.height)
-            new_buffer.composite(self.image_buffer, 0, 0)
-            new_buffer.composite(key_image, self.image_buffer.width, 0)
-            self.image_buffer = new_buffer
-        self.image_buffer.save(filename='clipboard:')
+            path = self.get_key(pos).get_path()
+            self.image_history.append((self.image_buffer, self.next_key_position))
+            if pressed_key.name == self.enter_key:
+                self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
+                return
+            elif self.image_buffer is None:
+                self.image_buffer = Image(filename=path)
+                self.next_key_position = [self.image_buffer.width, 0]
+            else:
+                key_image = Image(filename=path)
+                dx, dy = key_image.size
+                new_buffer = Image(width=max(self.image_buffer.width, self.next_key_position[0] + dx),
+                                   height=max(self.image_buffer.height, self.next_key_position[1] + dy))
+                new_buffer.composite(self.image_buffer, 0, 0)
+                new_buffer.composite(key_image, *self.next_key_position)
+                new_buffer.format = 'png'
+                self.image_buffer = new_buffer
+                self.next_key_position = [self.next_key_position[0] + dx, self.next_key_position[1]]
+        if self.image_buffer is None:
+            if self.screen_image is not None:
+                self.keys.remove(self.screen_image)
+            self.screen_image = None
+            pyperclip.copy('')
+        else:
+            data_buffer = BytesIO()
+            self.image_buffer.save(file=data_buffer)
+            data_buffer.seek(0)
+            screen_image = image.load('temp.png', file=data_buffer)
+            if self.screen_image is not None:
+                self.keys.remove(self.screen_image)
+            self.screen_image = Sprite(image=screen_image,
+                                       position=(self.border_width, self.window_height - self.border_width),
+                                       anchor=(0, screen_image.height))
+            self.screen_image.scale = min(self.screen.width / self.screen_image.width,
+                                          self.screen.height / self.screen_image.height,
+                                          1)
+            self.keys.add(self.screen_image)
+            self.image_buffer.save(filename='clipboard:')
+
+    def extend_layout(self, layout: List[List[List[str]]]):
+        new_layout = [[['' for _ in range(self.board_width)]
+                       for _ in range(self.board_height)]
+                      for _ in range(len(layout))]
+        for sub in range(len(new_layout)):
+            for row in range(len(new_layout[sub])):
+                for col in range(len(new_layout[sub][row])):
+                    try:
+                        new_layout[sub][row][col] = layout[sub][row][col]
+                    except IndexError:
+                        pass
+        return new_layout
+
+    def pretty_layout(self):
+        endl = '\n'
+        return '[\n' + [''.join(
+            '    [\n' + f"{''.join([f'        {repr(row)},{endl}' for row in sub])}" +
+            '    ],\n' for sub in self.layout
+        )][0] + ']'
 
     def on_mouse_press(self, x, y, buttons, modifiers) -> None:
         if buttons & mouse.LEFT:
@@ -232,8 +302,12 @@ class Keyboard(ColorLayer):
             self.key_sprites[selected[0]][selected[1]] = swapped_key  # put the other key on the start position
             swapped_key.position = self.get_position(selected)        # don't forget to update its position! :D
             self.keys.add(swapped_key)                                # and attach it to the key rendering node
+            swapped_key = self.layout[self.sublayout][pos[0]][pos[1]]
+            self.layout[self.sublayout][pos[0]][pos[1]] = self.layout[self.sublayout][selected[0]][selected[1]]
+            self.layout[self.sublayout][selected[0]][selected[1]] = swapped_key
+            print(self.pretty_layout())
 
-    def on_key_press(self, symbol, modifiers):
+    def on_key_press(self, symbol, modifiers) -> None:
         if symbol == key.R:
             if modifiers & key.MOD_ACCEL:  # CMD on OSX, CTRL otherwise
                 pass
@@ -246,4 +320,4 @@ class Keyboard(ColorLayer):
 
 
 if __name__ == '__main__':
-    Keyboard().run()
+    Keyboard('hs').run()
