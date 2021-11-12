@@ -1,7 +1,8 @@
 import os
 import sys
-import pyperclip
 from importlib import import_module, util
+
+import pyperclip
 
 sys.path.append(os.path.abspath(os.getcwd()))
 
@@ -28,6 +29,7 @@ def console():
                 message = input('Enter message: ')
             if message.strip() == '':
                 break
+            # TODO: check for existence of quirk()
             message = module.quirk(message)
             if not (hasattr(module, 'copy_output') and module.copy_output is False):
                 pyperclip.copy(message)

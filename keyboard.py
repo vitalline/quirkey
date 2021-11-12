@@ -1,7 +1,7 @@
-import random
-from io import BytesIO
+import os
+import sys
+from importlib import import_module
 from itertools import product
-from random import sample
 from typing import Tuple, Union
 
 from cocos import scene
@@ -9,22 +9,25 @@ from cocos.batch import BatchNode
 from cocos.director import director
 from cocos.layer import ColorLayer
 from cocos.sprite import Sprite
-from pyglet import image
+from pyglet.resource import ResourceNotFoundException
 from pyglet.window import key, mouse
 from wand.image import Image
 
+sys.path.append(os.path.abspath(os.getcwd()))
+
 
 class Key(Sprite):
-    def __init__(self, name: str = 'none', board: str = 'util'):
-        super().__init__(f"assets/{board}/{name}.png")
+    def __init__(self, board: str = 'util', name: Union[None, str] = None):
+        board = 'util' if name is None else board
+        super().__init__(f'assets/{board}/{name}.png')
         self.board = board
         self.name = name
 
     def get_path(self) -> str:
-        return f"assets/{self.board}/{self.name}.png"
+        return f'assets/{self.board}/{self.name}.png'
 
     def is_empty(self):
-        return self.name == 'none'
+        return self.name is None
 
 
 class Keyboard(ColorLayer):
@@ -32,32 +35,39 @@ class Keyboard(ColorLayer):
     def __init__(self):
         self.is_event_handler = True
 
-        self.board_height = 5
-        self.board_width = 12
-        self.screen_height = 3
-        self.cell_size = 64
-        self.cell_spacing = 4
-        self.cell_color_0 = 187, 119, 51
-        self.cell_color_1 = 255, 204, 153
-        self.highlight_color = 255, 255, 255
-        self.highlight_opacity = 50
-        self.key_press_color = 255, 221, 187
-        self.key_press_scale = 1.25
+        # super boring initialization stuff (bluh bluh)
+        layout = import_module('keyboards.hs')
+        self.board_height = layout.board_height if hasattr(layout, 'board_height') else 4
+        self.board_width = layout.board_width if hasattr(layout, 'board_width') else 13  # homestuck is alive!!1
+        self.screen_height = layout.screen_height if hasattr(layout, 'screen_height') else 4
+        self.cell_size = layout.cell_size if hasattr(layout, 'cell_size') else 64
+        self.cell_spacing = layout.cell_spacing if hasattr(layout, 'cell_spacing') else 4
+        self.background_color = layout.background_color if hasattr(layout, 'background_color') else (204, 204, 204)
+        self.key_color = layout.key_color if hasattr(layout, 'key_color') else (220, 220, 220)
+        self.highlight_color = layout.highlight_color if hasattr(layout, 'highlight_color') else (255, 255, 255)
+        self.highlight_opacity = layout.highlight_opacity if hasattr(layout, 'highlight_opacity') else 50
+        self.key_press_color = layout.key_press_color if hasattr(layout, 'key_press_color') else self.key_color
+        self.key_press_scale = layout.key_press_scale if hasattr(layout, 'key_press_scale') else 1.25
+        self.default_key = layout.default_key if hasattr(layout, 'default_key') else None
+        self.layout = layout.layout if hasattr(layout, 'layout') else [[[''] * self.board_width] * self.board_height]
+        self.sublayout = 0
+        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') \
+            else layout.__name__[layout.__name__.find('.')+1:]
+
         window_width = (self.board_width + 1) * (self.cell_size + self.cell_spacing)
         window_height = (self.board_height + self.screen_height + 1) * (self.cell_size + self.cell_spacing)
         director.init(width=window_width, height=window_height, autoscale=False)
-        super().__init__(192, 168, 142, 1000)
+        super().__init__(*self.background_color, 1000)
 
-        # super boring initialization stuff (bluh bluh)
         self.image_buffer = None
         self.clicked_key = None
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
-        self.highlight = Sprite("assets/util/cell.png", color=self.highlight_color, opacity=0)
+        self.highlight = Sprite('assets/util/cell.png', color=self.highlight_color, opacity=0)
         self.highlight.scale = self.cell_size / self.highlight.width
-        self.selection = Sprite("assets/util/cell.png", color=self.key_press_color, opacity=0)
+        self.selection = Sprite('assets/util/cell.png', color=self.key_press_color, opacity=0)
         self.selection.scale = self.cell_size / self.selection.width * self.key_press_scale
         self.keys = BatchNode()
         self.active_key = BatchNode()
@@ -73,13 +83,23 @@ class Keyboard(ColorLayer):
 
         for row, col in product(range(self.board_height), range(self.board_width)):
 
-            self.board_sprites[row] += [Sprite("assets/util/cell.png")]
+            self.board_sprites[row] += [Sprite('assets/util/cell.png')]
             self.board_sprites[row][col].position = self.get_position((row, col))
             self.board_sprites[row][col].scale = self.cell_size / self.board_sprites[row][col].width
             self.board_sprites[row][col].color = self.get_cell_color((row, col))
             self.board.add(self.board_sprites[row][col])
 
-            self.key_sprites[row] += [Key('lower_' + chr(random.randint(ord('a'), ord('z'))), 'hs')]
+            try:
+                self.key_sprites[row] += [Key(self.asset_folder, self.layout[self.sublayout][row][col])]
+            except (IndexError, ResourceNotFoundException):
+                if self.default_key:
+                    self.key_sprites[row] += [Key(self.asset_folder, self.default_key)]
+                else:
+                    self.key_sprites[row] += [Key()]
+            finally:
+                if self.key_sprites[row][col].is_empty():
+                    self.board_sprites[row][col].opacity = 0
+
             self.key_sprites[row][col].position = self.get_position((row, col))
             self.key_sprites[row][col].scale = self.cell_size / self.key_sprites[row][col].width
             self.keys.add(self.key_sprites[row][col])
@@ -90,15 +110,15 @@ class Keyboard(ColorLayer):
         window_width, window_height = director.get_window_size()
         x, y = director.get_virtual_coordinates(x, y)
         col = round((x - window_width / 2) / (self.cell_size + self.cell_spacing) + (self.board_width - 1) / 2)
-        row = round((y - window_height / 2) / (self.cell_size + self.cell_spacing)
-                    + (self.board_height + self.screen_height - 1) / 2)
+        row = round((self.board_height - self.screen_height - 1) / 2
+                    - (y - window_height / 2) / (self.cell_size + self.cell_spacing))
         return row, col
 
     def get_position(self, pos: Tuple[int, int]) -> Tuple[float, float]:
         window_width, window_height = director.get_window_size()
         row, col = pos
         x = (col - (self.board_width - 1) / 2) * (self.cell_size + self.cell_spacing) + window_width / 2
-        y = (row - (self.board_height + self.screen_height - 1) / 2) \
+        y = ((self.board_height - self.screen_height - 1) / 2 - row) \
             * (self.cell_size + self.cell_spacing) + window_height / 2
         return x, y
 
@@ -118,12 +138,9 @@ class Keyboard(ColorLayer):
     def nothing_selected(self) -> bool:
         return self.not_a_key(self.selected_key)
 
-    def not_movable(self, pos: Tuple[int, int]):
-        return self.not_a_key(pos)
-
     def select_key(self, pos: Tuple[int, int]) -> None:
-        if self.not_on_board(pos):
-            return  # there's nothing to select off the board
+        if self.not_a_key(pos):
+            return  # we shouldn't select a nonexistent key
         if pos == self.selected_key:
             return  # key already selected, nothing else to do
 
@@ -154,7 +171,7 @@ class Keyboard(ColorLayer):
 
     def copy_key(self, pos: Tuple[int, int]):
         path = self.get_key(pos).get_path()
-        Image(filename=path).save(filename="clipboard:")
+        Image(filename=path).save(filename='clipboard:')
 
     def add_key(self, pos: Tuple[int, int]):
         path = self.get_key(pos).get_path()
@@ -166,20 +183,20 @@ class Keyboard(ColorLayer):
             new_buffer.composite(self.image_buffer, 0, 0)
             new_buffer.composite(key_image, self.image_buffer.width, 0)
             self.image_buffer = new_buffer
-        self.image_buffer.save(filename="clipboard:")
+        self.image_buffer.save(filename='clipboard:')
 
     def on_mouse_press(self, x, y, buttons, modifiers) -> None:
         if buttons & mouse.LEFT:
             pos = self.get_coordinates(x, y)
             self.clicked_key = pos  # we need this in order to discern what are we dragging
-            if self.not_movable(pos):
+            if self.not_a_key(pos):
                 return
             self.deselect_key()  # just in case we had something previously selected
             self.select_key(pos)
 
     def on_mouse_motion(self, x, y, dx, dy) -> None:
         pos = self.get_coordinates(x + dx, y + dy)
-        if self.not_on_board(pos):
+        if self.not_a_key(pos):
             self.highlight.opacity = 0
         else:
             self.highlight.opacity = self.highlight_opacity
@@ -199,7 +216,7 @@ class Keyboard(ColorLayer):
                 self.add_key(pos)
                 self.deselect_key()
                 return
-            if self.not_on_board(pos):
+            if self.not_a_key(pos):
                 pos = selected  # to avoid dragging a key off the board, place it back on its cell
 
             self.deselect_key()  # remove selection
@@ -225,7 +242,7 @@ class Keyboard(ColorLayer):
         pass
 
     def get_cell_color(self, _):
-        return self.cell_color_1
+        return self.key_color
 
 
 if __name__ == '__main__':
