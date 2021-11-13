@@ -19,7 +19,7 @@ layout = [
          'lower_p', 'lower_q', 'lower_r', 'lower_s', 'lower_t'],
         ['lower_u', 'lower_v', 'lower_w', 'lower_x', 'lower_y',
          'lower_z', 'symbol_01', 'symbol_02', 'symbol_11', 'backspace'],
-        ['k_prev', 'k_next', 'l_prev', 'l_next', '',
+        ['k_prev', 'k_next', 'l_prev', 'l_next', 'space',
          'symbol_04', 'symbol_03', 'symbol_12', 'symbol_13', 'enter'],
     ]
 ]

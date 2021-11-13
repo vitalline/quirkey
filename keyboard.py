@@ -23,12 +23,12 @@ sys.path.append(os.path.abspath(os.getcwd()))
 class Key(Sprite):
     def __init__(self, board: str = 'util', name: Union[None, str] = None):
         board = 'util' if name is None else board
-        super().__init__(f'assets/{board}/{name}.png')
+        super().__init__(f'keyboards/assets/{board}/{name}.png')
         self.board = board
         self.name = name
 
     def get_path(self) -> str:
-        return f'assets/{self.board}/{self.name}.png'
+        return f'keyboards/assets/{self.board}/{self.name}.png'
 
     def is_empty(self):
         return self.name is None
@@ -76,14 +76,14 @@ class Keyboard(ColorLayer):
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
-        self.screen = Sprite('assets/util/cell.png', color=self.key_color, position=(
+        self.screen = Sprite('keyboards/assets/util/cell.png', color=self.key_color, position=(
             (self.window_width / 2),
             (self.board_height + self.screen_height / 2) * (self.cell_size + self.cell_spacing) + self.border_width))
         self.screen.scale_x = (self.window_width - self.border_width * 2) / self.screen.width
         self.screen.scale_y = (self.cell_size + self.cell_spacing) * self.screen_height / self.screen.height
-        self.highlight = Sprite('assets/util/cell.png', color=self.highlight_color, opacity=0)
+        self.highlight = Sprite('keyboards/assets/util/cell.png', color=self.highlight_color, opacity=0)
         self.highlight.scale = self.cell_size / self.highlight.width
-        self.selection = Sprite('assets/util/cell.png', color=self.key_press_color, opacity=0)
+        self.selection = Sprite('keyboards/assets/util/cell.png', color=self.key_press_color, opacity=0)
         self.selection.scale = self.cell_size / self.selection.width * self.key_press_scale
         self.keys = BatchNode()
         self.active_key = BatchNode()
@@ -100,7 +100,7 @@ class Keyboard(ColorLayer):
 
         for row, col in product(range(self.board_height), range(self.board_width)):
 
-            self.board_sprites[row] += [Sprite('assets/util/cell.png')]
+            self.board_sprites[row] += [Sprite('keyboards/assets/util/cell.png')]
             self.board_sprites[row][col].position = self.get_position((row, col))
             self.board_sprites[row][col].scale = self.cell_size / self.board_sprites[row][col].width
             self.board_sprites[row][col].color = self.get_cell_color((row, col))
@@ -199,6 +199,7 @@ class Keyboard(ColorLayer):
             path = self.get_key(pos).get_path()
             self.image_history.append((self.image_buffer, self.next_key_position))
             if pressed_key.name == self.enter_key:
+                # TODO: add support for start/end/double enters
                 self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
                 return
             elif self.image_buffer is None:
