@@ -1,6 +1,7 @@
 import os
 import sys
 from importlib import import_module
+from importlib.util import find_spec
 from io import BytesIO
 from itertools import product
 from typing import Tuple, Union, List
@@ -45,6 +46,8 @@ class Keyboard(ColorLayer):
 
         # super boring initialization stuff (bluh bluh)
         layout = import_module(f'keyboards.{layout_name}')
+        layout_edit = import_module(f'keyboards.{layout_name}_edit') \
+            if find_spec(f'keyboards.{layout_name}_edit') else layout
         self.board_height = layout.board_height if hasattr(layout, 'board_height') else 4
         self.board_width = layout.board_width if hasattr(layout, 'board_width') else 13  # homestuck is alive!!1
         self.screen_height = layout.screen_height if hasattr(layout, 'screen_height') else 4
@@ -62,8 +65,9 @@ class Keyboard(ColorLayer):
         self.enter_key = layout.enter_key if hasattr(layout, 'enter_key') else 'enter'
         self.layout_switch_keys = _box(layout.layout_switch_keys) if hasattr(layout, 'layout_switch_keys') else ()
         self.keyboard_switch_keys = _box(layout.keyboard_switch_keys) if hasattr(layout, 'keyboard_switch_keys') else ()
-        self.layout = self.extend_layout(layout.layout if hasattr(layout, 'layout') else [[]])
-        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') else layout_name
+        self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else [[]])
+        self.layout_name = layout_name
+        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') else self.layout_name
         self.window_width = self.board_width * (self.cell_size + self.cell_spacing) + self.border_width * 2
         self.window_height = (self.board_height + self.screen_height) * (self.cell_size + self.cell_spacing) \
             + self.border_width * 2
@@ -304,7 +308,7 @@ class Keyboard(ColorLayer):
                     self.add_key(pos)
                     self.deselect_key()
                 return
-            if self.not_a_key(pos):
+            if self.not_on_board(pos):
                 pos = selected  # to avoid dragging a key off the board, place it back on its cell
 
             self.deselect_key()  # remove selection
@@ -313,17 +317,22 @@ class Keyboard(ColorLayer):
                 return
 
             key_sprite = self.get_key(selected)
-            key_sprite.position = self.get_position(pos)              # place the key on the intended position
-            swapped_key = self.get_key(pos)                           # we're gonna swap the keys because uh yes.
-            self.keys.remove(swapped_key)                             # remove the key from the end position
-            self.key_sprites[pos[0]][pos[1]] = key_sprite             # put the moved key on the end position
-            self.key_sprites[selected[0]][selected[1]] = swapped_key  # put the other key on the start position
-            swapped_key.position = self.get_position(selected)        # don't forget to update its position! :D
-            self.keys.add(swapped_key)                                # and attach it to the key rendering node
+            key_sprite.position = self.get_position(pos)
+            swapped_key = self.get_key(pos)
+            swapped_key.position = self.get_position(selected)
+            self.key_sprites[pos[0]][pos[1]] = key_sprite
+            self.key_sprites[selected[0]][selected[1]] = swapped_key
+            if swapped_key.is_empty():
+                self.board_sprites[pos[0]][pos[1]].opacity = 255
+                self.board_sprites[selected[0]][selected[1]].opacity = 0
             swapped_key = self.layout[self.sublayout][pos[0]][pos[1]]
             self.layout[self.sublayout][pos[0]][pos[1]] = self.layout[self.sublayout][selected[0]][selected[1]]
             self.layout[self.sublayout][selected[0]][selected[1]] = swapped_key
-            print(self.pretty_layout())
+
+            # print(self.pretty_layout())
+            layout_edit = open(f'keyboards/{self.layout_name}_edit.py', 'w')
+            layout_edit.write(f'layout = {self.pretty_layout()}')
+            layout_edit.close()
 
     def on_key_press(self, symbol, modifiers) -> None:
         if symbol == key.R:
