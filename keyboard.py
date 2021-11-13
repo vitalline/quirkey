@@ -204,51 +204,49 @@ class Keyboard(ColorLayer):
         path = self.get_key(pos).get_path()
         Image(filename=path).save(filename='clipboard:')
 
-    def add_key(self, pos: Tuple[int, int]) -> None:
+    def press_key(self, pos: Tuple[int, int]) -> None:
         pressed_key = self.get_key(pos)
-        if pressed_key.name == self.backspace_key:
-            if len(self.image_history):
-                self.image_buffer, self.next_key_position = self.image_history.pop()
+        path = self.get_key(pos).get_path()
+        self.image_history.append((self.image_buffer, self.next_key_position))
+        if pressed_key.name == self.enter_key:
+            # TODO: add support for start/end/double enters
+            self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
+            return
+        elif self.image_buffer is None:
+            self.image_buffer = Image(filename=path)
+            self.next_key_position = [self.image_buffer.width, 0]
         else:
-            path = self.get_key(pos).get_path()
-            self.image_history.append((self.image_buffer, self.next_key_position))
-            if pressed_key.name == self.enter_key:
-                # TODO: add support for start/end/double enters
-                self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
-                return
-            elif self.image_buffer is None:
-                self.image_buffer = Image(filename=path)
-                self.next_key_position = [self.image_buffer.width, 0]
-            else:
-                key_image = Image(filename=path)
-                dx, dy = key_image.size
-                new_buffer = Image(width=max(self.image_buffer.width, self.next_key_position[0] + dx),
-                                   height=max(self.image_buffer.height, self.next_key_position[1] + dy))
-                new_buffer.composite(self.image_buffer, 0, 0)
-                new_buffer.composite(key_image, *self.next_key_position)
-                new_buffer.format = 'png'
-                self.image_buffer = new_buffer
-                self.next_key_position = [self.next_key_position[0] + dx, self.next_key_position[1]]
+            key_image = Image(filename=path)
+            dx, dy = key_image.size
+            new_buffer = Image(width=max(self.image_buffer.width, self.next_key_position[0] + dx),
+                               height=max(self.image_buffer.height, self.next_key_position[1] + dy))
+            new_buffer.composite(self.image_buffer, 0, 0)
+            new_buffer.composite(key_image, *self.next_key_position)
+            new_buffer.format = 'png'
+            self.image_buffer = new_buffer
+            self.next_key_position = [self.next_key_position[0] + dx, self.next_key_position[1]]
+        self.update_image()
+
+    def update_image(self):
         if self.image_buffer is None:
             if self.screen_image is not None:
                 self.keys.remove(self.screen_image)
             self.screen_image = None
             pyperclip.copy('')
-        else:
-            data_buffer = BytesIO()
-            self.image_buffer.save(file=data_buffer)
-            data_buffer.seek(0)
-            screen_image = image.load('temp.png', file=data_buffer)
-            if self.screen_image is not None:
-                self.keys.remove(self.screen_image)
-            self.screen_image = Sprite(image=screen_image,
-                                       position=(self.border_width, self.window_height - self.border_width),
-                                       anchor=(0, screen_image.height))
-            self.screen_image.scale = min(self.screen.width / self.screen_image.width,
-                                          self.screen.height / self.screen_image.height,
-                                          1)
-            self.keys.add(self.screen_image)
-            self.image_buffer.save(filename='clipboard:')
+        data_buffer = BytesIO()
+        self.image_buffer.save(file=data_buffer)
+        data_buffer.seek(0)
+        screen_image = image.load('temp.png', file=data_buffer)
+        if self.screen_image is not None:
+            self.keys.remove(self.screen_image)
+        self.screen_image = Sprite(image=screen_image,
+                                   position=(self.border_width, self.window_height - self.border_width),
+                                   anchor=(0, screen_image.height))
+        self.screen_image.scale = min(self.screen.width / self.screen_image.width,
+                                      self.screen.height / self.screen_image.height,
+                                      1)
+        self.keys.add(self.screen_image)
+        self.image_buffer.save(filename='clipboard:')
 
     def extend_layout(self, layout: List[List[List[str]]]):
         new_layout = [[['' for _ in range(self.board_width)]
@@ -271,7 +269,7 @@ class Keyboard(ColorLayer):
         )][0] + ']'
 
     def on_mouse_press(self, x, y, buttons, modifiers) -> None:
-        if buttons & mouse.LEFT:
+        if buttons & (mouse.LEFT | mouse.RIGHT):
             pos = self.get_coordinates(x, y)
             if self.not_a_key(pos):
                 return
@@ -290,23 +288,33 @@ class Keyboard(ColorLayer):
         self.on_mouse_motion(x, y, dx, dy)  # move the highlight as well!
 
     def on_mouse_release(self, x, y, buttons, modifiers) -> None:
-        if buttons & mouse.LEFT:
-            if self.nothing_selected():
-                return
+        if self.nothing_selected():
+            return
+        if buttons & (mouse.LEFT | mouse.RIGHT):
             selected = self.selected_key
             pos = self.get_coordinates(x, y)
             if pos == selected:
-                if self.get_key(pos).name in self.layout_switch_keys:
+                self.deselect_key()
+                key_name = self.get_key(pos).name
+                if key_name in self.layout_switch_keys:
                     self.deselect_key()
-                    if len(self.layout) > 1 and self.get_key(pos).name == self.layout_switch_keys[0]:
+                    if (len(self.layout) > 1 and key_name == self.layout_switch_keys[0]) == (buttons & mouse.LEFT):
                         self.sublayout = (self.sublayout + len(self.layout) - 1) % len(self.layout)
                     else:
                         self.sublayout = (self.sublayout + 1) % len(self.layout)
                     self.update_layout()
                     return
+                elif key_name == self.backspace_key:
+                    if len(self.image_history) == 0:
+                        return
+                    if buttons & mouse.LEFT:
+                        self.image_buffer, self.next_key_position = self.image_history.pop()
+                    elif buttons & mouse.RIGHT:
+                        self.image_buffer, self.next_key_position = self.image_history[0]
+                        self.image_history.clear()
+                    self.update_image()
                 else:
-                    self.add_key(pos)
-                    self.deselect_key()
+                    self.press_key(pos)
                 return
             if self.not_on_board(pos):
                 pos = selected  # to avoid dragging a key off the board, place it back on its cell
