@@ -20,10 +20,14 @@ import pyperclip
 sys.path.append(os.path.abspath(os.getcwd()))
 
 
+def _box(var):
+    return (*var,) if isinstance(var, (List, Tuple)) else (var,)
+
+
 class Key(Sprite):
-    def __init__(self, board: str = 'util', name: Union[None, str] = None):
+    def __init__(self, name: Union[None, str] = None, board: str = 'util', **kwargs):
         board = 'util' if name is None else board
-        super().__init__(f'keyboards/assets/{board}/{name}.png')
+        super().__init__(f'keyboards/assets/{board}/{name}.png', **kwargs)
         self.board = board
         self.name = name
 
@@ -56,10 +60,9 @@ class Keyboard(ColorLayer):
         self.default_key = layout.default_key if hasattr(layout, 'default_key') else None
         self.backspace_key = layout.backspace_key if hasattr(layout, 'backspace_key') else 'backspace'
         self.enter_key = layout.enter_key if hasattr(layout, 'enter_key') else 'enter'
-        self.layout_switch_keys = layout.layout_switch_keys if hasattr(layout, 'layout_switch_keys') else None
-        self.keyboard_switch_keys = layout.keyboard_switch_keys if hasattr(layout, 'keyboard_switch_keys') else None
+        self.layout_switch_keys = _box(layout.layout_switch_keys) if hasattr(layout, 'layout_switch_keys') else ()
+        self.keyboard_switch_keys = _box(layout.keyboard_switch_keys) if hasattr(layout, 'keyboard_switch_keys') else ()
         self.layout = self.extend_layout(layout.layout if hasattr(layout, 'layout') else [[]])
-        self.sublayout = 0
         self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') else layout_name
         self.window_width = self.board_width * (self.cell_size + self.cell_spacing) + self.border_width * 2
         self.window_height = (self.board_height + self.screen_height) * (self.cell_size + self.cell_spacing) \
@@ -71,19 +74,18 @@ class Keyboard(ColorLayer):
         self.image_buffer = None
         self.image_history = []
         self.next_key_position = [0, 0]
-        self.clicked_key = None
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
-        self.screen = Sprite('keyboards/assets/util/cell.png', color=self.key_color, position=(
+        self.screen = Key('cell', color=self.key_color, position=(
             (self.window_width / 2),
             (self.board_height + self.screen_height / 2) * (self.cell_size + self.cell_spacing) + self.border_width))
         self.screen.scale_x = (self.window_width - self.border_width * 2) / self.screen.width
         self.screen.scale_y = (self.cell_size + self.cell_spacing) * self.screen_height / self.screen.height
-        self.highlight = Sprite('keyboards/assets/util/cell.png', color=self.highlight_color, opacity=0)
+        self.highlight = Key('cell', color=self.highlight_color, opacity=0)
         self.highlight.scale = self.cell_size / self.highlight.width
-        self.selection = Sprite('keyboards/assets/util/cell.png', color=self.key_press_color, opacity=0)
+        self.selection = Key('cell', color=self.key_press_color, opacity=0)
         self.selection.scale = self.cell_size / self.selection.width * self.key_press_scale
         self.keys = BatchNode()
         self.active_key = BatchNode()
@@ -95,33 +97,41 @@ class Keyboard(ColorLayer):
         self.active_key.add(self.selection)
 
         for row in range(self.board_height):
-            self.board_sprites += [[]]
-            self.key_sprites += [[]]
+            self.board_sprites = [[Key('cell') for _ in range(self.board_width)] for _ in range(self.board_height)]
+            self.key_sprites = [[Key() for _ in range(self.board_width)] for _ in range(self.board_height)]
 
         for row, col in product(range(self.board_height), range(self.board_width)):
 
-            self.board_sprites[row] += [Sprite('keyboards/assets/util/cell.png')]
             self.board_sprites[row][col].position = self.get_position((row, col))
             self.board_sprites[row][col].scale = self.cell_size / self.board_sprites[row][col].width
             self.board_sprites[row][col].color = self.get_cell_color((row, col))
             self.board.add(self.board_sprites[row][col])
 
+        self.sublayout = 0
+        self.update_layout()
+
+        director.run(scene.Scene(self))
+
+    def update_layout(self):
+        for row, col in product(range(self.board_height), range(self.board_width)):
+            if self.key_sprites[row][col].parent == self.keys:
+                self.keys.remove(self.key_sprites[row][col])
             try:
-                self.key_sprites[row] += [Key(self.asset_folder, self.layout[self.sublayout][row][col])]
+                self.key_sprites[row][col] = Key(self.layout[self.sublayout][row][col], self.asset_folder)
             except (IndexError, ResourceNotFoundException):
                 if self.default_key:
-                    self.key_sprites[row] += [Key(self.asset_folder, self.default_key)]
+                    self.key_sprites[row][col] = Key(self.default_key, self.asset_folder)
                 else:
-                    self.key_sprites[row] += [Key()]
+                    self.key_sprites[row][col] = Key()
             finally:
                 if self.key_sprites[row][col].is_empty():
                     self.board_sprites[row][col].opacity = 0
+                else:
+                    self.board_sprites[row][col].opacity = 255
 
             self.key_sprites[row][col].position = self.get_position((row, col))
             self.key_sprites[row][col].scale = self.cell_size / self.key_sprites[row][col].width
             self.keys.add(self.key_sprites[row][col])
-
-        director.run(scene.Scene(self))
 
     def get_coordinates(self, x: float, y: float) -> Tuple[int, int]:
         x, y = director.get_virtual_coordinates(x, y)
@@ -259,7 +269,6 @@ class Keyboard(ColorLayer):
     def on_mouse_press(self, x, y, buttons, modifiers) -> None:
         if buttons & mouse.LEFT:
             pos = self.get_coordinates(x, y)
-            self.clicked_key = pos  # we need this in order to discern what are we dragging
             if self.not_a_key(pos):
                 return
             self.deselect_key()  # just in case we had something previously selected
@@ -280,12 +289,20 @@ class Keyboard(ColorLayer):
         if buttons & mouse.LEFT:
             if self.nothing_selected():
                 return
-            self.clicked_key = None
             selected = self.selected_key
             pos = self.get_coordinates(x, y)
             if pos == selected:
-                self.add_key(pos)
-                self.deselect_key()
+                if self.get_key(pos).name in self.layout_switch_keys:
+                    self.deselect_key()
+                    if len(self.layout) > 1 and self.get_key(pos).name == self.layout_switch_keys[0]:
+                        self.sublayout = (self.sublayout + len(self.layout) - 1) % len(self.layout)
+                    else:
+                        self.sublayout = (self.sublayout + 1) % len(self.layout)
+                    self.update_layout()
+                    return
+                else:
+                    self.add_key(pos)
+                    self.deselect_key()
                 return
             if self.not_a_key(pos):
                 pos = selected  # to avoid dragging a key off the board, place it back on its cell
