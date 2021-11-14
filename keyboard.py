@@ -6,6 +6,7 @@ from io import BytesIO
 from itertools import product
 from typing import Tuple, Union, List
 
+import win32clipboard as clp
 from cocos import scene
 from cocos.batch import BatchNode
 from cocos.director import director
@@ -233,6 +234,7 @@ class Keyboard(ColorLayer):
                 self.keys.remove(self.screen_image)
             self.screen_image = None
             pyperclip.copy('')
+            return
         data_buffer = BytesIO()
         self.image_buffer.save(file=data_buffer)
         data_buffer.seek(0)
@@ -246,7 +248,15 @@ class Keyboard(ColorLayer):
                                       self.screen.height / self.screen_image.height,
                                       1)
         self.keys.add(self.screen_image)
-        self.image_buffer.save(filename='clipboard:')
+        save_path = 'saved.png'
+        self.image_buffer.save(filename=save_path)  # in case my clipboard shenanigans don't work just use the file ig
+        save_path = os.path.abspath(save_path).encode('utf-16-le') + b'\0'
+        data_buffer.seek(0)
+        clp.OpenClipboard()
+        clp.EmptyClipboard()
+        clp.SetClipboardData(clp.RegisterClipboardFormat('FileNameW'), save_path)
+        clp.SetClipboardData(clp.RegisterClipboardFormat('image/png'), data_buffer.getvalue())
+        clp.CloseClipboard()
 
     def extend_layout(self, layout: List[List[List[str]]]):
         new_layout = [[['' for _ in range(self.board_width)]
@@ -268,7 +278,7 @@ class Keyboard(ColorLayer):
             '    ],\n' for sub in self.layout
         )][0] + ']'
 
-    def on_mouse_press(self, x, y, buttons, modifiers) -> None:
+    def on_mouse_press(self, x, y, buttons, _modifiers) -> None:
         if buttons & (mouse.LEFT | mouse.RIGHT):
             pos = self.get_coordinates(x, y)
             if self.not_a_key(pos):
@@ -284,10 +294,10 @@ class Keyboard(ColorLayer):
             self.highlight.opacity = self.highlight_opacity
             self.highlight.position = self.get_position(pos)
 
-    def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers) -> None:
+    def on_mouse_drag(self, x, y, dx, dy, _buttons, _modifiers) -> None:
         self.on_mouse_motion(x, y, dx, dy)  # move the highlight as well!
 
-    def on_mouse_release(self, x, y, buttons, modifiers) -> None:
+    def on_mouse_release(self, x, y, buttons, _modifiers) -> None:
         if self.nothing_selected():
             return
         if buttons & (mouse.LEFT | mouse.RIGHT):
