@@ -15,11 +15,15 @@ def gen_data_files(source_dirs):
 setup(
     name='quirkey',
     version='0.0.1',
-    options={"build_exe": {
-        'includes': ['win32com'],
-        'include_files': gen_data_files(['keyboards', 'quirks'])}},
+    options={
+        'build_exe': {
+            'includes': ['win32com'],
+            'include_files': gen_data_files(['keyboards', 'quirks'])
+        }
+    },
     executables=[
-        Executable("console.py"),
-        Executable("keyboard.py", base="Win32GUI"),
+        Executable('console.py'),
+        Executable('keyboard.py', target_name='keyboard_debug'),
+        Executable('keyboard.py', base='Win32GUI'),
     ]
 )

@@ -7,6 +7,7 @@ from itertools import product
 from typing import Tuple, Union, List
 
 import win32clipboard as clp
+from PIL import Image
 from cocos import scene
 from cocos.batch import BatchNode
 from cocos.director import director
@@ -15,7 +16,6 @@ from cocos.sprite import Sprite
 from pyglet import image
 from pyglet.resource import ResourceNotFoundException
 from pyglet.window import key, mouse
-from wand.image import Image
 
 import pyperclip
 
@@ -201,10 +201,6 @@ class Keyboard(ColorLayer):
 
         self.selected_key = None
 
-    def copy_key(self, pos: Tuple[int, int]) -> None:
-        path = self.get_key(pos).get_path()
-        Image(filename=path).save(filename='clipboard:')
-
     def press_key(self, pos: Tuple[int, int]) -> None:
         pressed_key = self.get_key(pos)
         path = self.get_key(pos).get_path()
@@ -214,16 +210,19 @@ class Keyboard(ColorLayer):
             self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
             return
         elif self.image_buffer is None:
-            self.image_buffer = Image(filename=path)
+            self.image_buffer = Image.open(path)
             self.next_key_position = [self.image_buffer.width, 0]
         else:
-            key_image = Image(filename=path)
+            key_image = Image.open(path)
             dx, dy = key_image.size
-            new_buffer = Image(width=max(self.image_buffer.width, self.next_key_position[0] + dx),
-                               height=max(self.image_buffer.height, self.next_key_position[1] + dy))
-            new_buffer.composite(self.image_buffer, 0, 0)
-            new_buffer.composite(key_image, *self.next_key_position)
-            new_buffer.format = 'png'
+            new_buffer = Image.new(
+                mode='RGBA',
+                size=(max(self.image_buffer.width, self.next_key_position[0] + dx),
+                      max(self.image_buffer.height, self.next_key_position[1] + dy)),
+                color=(0, 0, 0, 0)
+            )
+            new_buffer.paste(self.image_buffer)
+            new_buffer.paste(key_image, self.next_key_position)
             self.image_buffer = new_buffer
             self.next_key_position = [self.next_key_position[0] + dx, self.next_key_position[1]]
         self.update_image()
@@ -236,7 +235,7 @@ class Keyboard(ColorLayer):
             pyperclip.copy('')
             return
         data_buffer = BytesIO()
-        self.image_buffer.save(file=data_buffer)
+        self.image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
         screen_image = image.load('temp.png', file=data_buffer)
         if self.screen_image is not None:
@@ -249,7 +248,7 @@ class Keyboard(ColorLayer):
                                       1)
         self.keys.add(self.screen_image)
         save_path = 'saved.png'
-        self.image_buffer.save(filename=save_path)  # in case my clipboard shenanigans don't work just use the file ig
+        self.image_buffer.save(save_path)  # in case my clipboard shenanigans don't work just use the file ig
         save_path = os.path.abspath(save_path).encode('utf-16-le') + b'\0'
         data_buffer.seek(0)
         clp.OpenClipboard()
