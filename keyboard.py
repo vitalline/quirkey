@@ -4,7 +4,8 @@ from importlib import import_module
 from importlib.util import find_spec
 from io import BytesIO
 from itertools import product
-from typing import Tuple, Union, List
+from math import ceil, sqrt
+from typing import Any, List, Optional, Tuple, Union
 
 import win32clipboard as clp
 from PIL import Image
@@ -22,22 +23,59 @@ import pyperclip
 sys.path.append(os.path.abspath(os.getcwd()))
 
 
-def _box(var):
+def box(var):
     return (*var,) if isinstance(var, (List, Tuple)) else (var,)
 
 
+def copyattr(self: object, obj: object, k: str, default: Optional[Any] = None):
+    setattr(self, k, getattr(obj, k, default))
+
+
 class Key(Sprite):
-    def __init__(self, name: Union[None, str] = None, board: str = 'util', **kwargs):
-        board = 'util' if name is None else board
-        super().__init__(f'keyboards/assets/{board}/{name}.png', **kwargs)
+    def __init__(self, name: Union[None, str, List[str]] = None, board: str = 'util',
+                 size: Union[None, int, float, Tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
+        if name is None:
+            board = 'util'
+        if type(name) == list:
+            grid_size = ceil(sqrt(len(name)))
+            grid_shift = grid_size - ceil(len(name) / grid_size)
+            if size is None:
+                size = 64 * grid_size, 64 * (grid_size - grid_shift)
+            elif type(size) in (int, float):
+                size = size, size
+            image_buffer = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
+            for i, subname in enumerate(name):
+                subimage = Image.open(f'keyboards/assets/{board}/{subname}.png')
+                subimage = subimage.resize((size[0] // grid_size, size[1] // grid_size))
+                image_buffer.paste(subimage, (
+                    round(subimage.width * (i % grid_size)),
+                    round(subimage.height * (i // grid_size + grid_shift / 2))
+                ))
+            data_buffer = BytesIO()
+            image_buffer.save(data_buffer, format='png')
+            data_buffer.seek(0)
+            super().__init__(image.load('temp.png', file=data_buffer), **kwargs)
+        else:
+            super().__init__(f'keyboards/assets/{board}/{name}.png', **kwargs)
+            if size is None:
+                size = self.width, self.height
+            elif type(size) in (int, float):
+                size = size, size
+        self.resize(*size)
         self.board = board
         self.name = name
 
     def get_path(self) -> str:
         return f'keyboards/assets/{self.board}/{self.name}.png'
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         return self.name is None
+
+    def resize(self, width: Union[int, float], height: Union[None, int, float] = None) -> None:
+        if height is None:
+            height = width
+        self.scale_x = width * self.scale_x / self.width
+        self.scale_y = height * self.scale_y / self.height
 
 
 class Keyboard(ColorLayer):
@@ -49,28 +87,29 @@ class Keyboard(ColorLayer):
         layout = import_module(f'keyboards.{layout_name}')
         layout_edit = import_module(f'keyboards.{layout_name}_edit') \
             if find_spec(f'keyboards.{layout_name}_edit') else layout
-        self.board_height = layout.board_height if hasattr(layout, 'board_height') else 4
-        self.board_width = layout.board_width if hasattr(layout, 'board_width') else 13  # homestuck is alive!!1
-        self.screen_height = layout.screen_height if hasattr(layout, 'screen_height') else 4
-        self.cell_size = layout.cell_size if hasattr(layout, 'cell_size') else 64
-        self.cell_spacing = layout.cell_spacing if hasattr(layout, 'cell_spacing') else 4
-        self.border_width = layout.border_width if hasattr(layout, 'border_width') else 16
-        self.background_color = layout.background_color if hasattr(layout, 'background_color') else (204, 204, 204)
-        self.key_color = layout.key_color if hasattr(layout, 'key_color') else (220, 220, 220)
-        self.highlight_color = layout.highlight_color if hasattr(layout, 'highlight_color') else (255, 255, 255)
-        self.highlight_opacity = layout.highlight_opacity if hasattr(layout, 'highlight_opacity') else 50
-        self.key_press_color = layout.key_press_color if hasattr(layout, 'key_press_color') else self.key_color
-        self.key_press_scale = layout.key_press_scale if hasattr(layout, 'key_press_scale') else 1.25
-        self.default_key = layout.default_key if hasattr(layout, 'default_key') else None
-        self.backspace_key = layout.backspace_key if hasattr(layout, 'backspace_key') else 'backspace'
-        self.enter_key = layout.enter_key if hasattr(layout, 'enter_key') else 'enter'
-        self.layout_switch_keys = _box(layout.layout_switch_keys) if hasattr(layout, 'layout_switch_keys') else ()
-        self.keyboard_switch_keys = _box(layout.keyboard_switch_keys) if hasattr(layout, 'keyboard_switch_keys') else ()
-        self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else [[]])
+        copyattr(self, layout, 'board_height', 4)
+        copyattr(self, layout, 'board_width', 13)  # homestuck is alive!!1
+        copyattr(self, layout, 'screen_height', 4)
+        copyattr(self, layout, 'key_size', 64)
+        copyattr(self, layout, 'key_spacing', 4)
+        copyattr(self, layout, 'border_width', 16)
+        copyattr(self, layout, 'background_color', (204, 204, 204))
+        copyattr(self, layout, 'key_color', (220, 220, 220))
+        copyattr(self, layout, 'highlight_color', (255, 255, 255))
+        copyattr(self, layout, 'highlight_opacity', 50)
+        copyattr(self, layout, 'key_press_color', self.key_color)
+        copyattr(self, layout, 'key_press_scale', 1.25)
+        copyattr(self, layout, 'default_key', None)
+        copyattr(self, layout, 'backspace_key', 'backspace')
+        copyattr(self, layout, 'enter_key', 'enter')
+        copyattr(self, layout, 'default_layout', 0)
+        copyattr(self, layout, 'layout_switch_keys', ())
+        copyattr(self, layout, 'keyboard_switch_keys', ())
+        copyattr(self, layout, 'asset_folder', layout_name)
         self.layout_name = layout_name
-        self.asset_folder = layout.asset_folder if hasattr(layout, 'asset_folder') else self.layout_name
-        self.window_width = self.board_width * (self.cell_size + self.cell_spacing) + self.border_width * 2
-        self.window_height = (self.board_height + self.screen_height) * (self.cell_size + self.cell_spacing) \
+        self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else [[]])
+        self.window_width = self.board_width * (self.key_size + self.key_spacing) + self.border_width * 2
+        self.window_height = (self.board_height + self.screen_height) * (self.key_size + self.key_spacing) \
             + self.border_width * 2
         director.init(width=self.window_width, height=self.window_height, autoscale=False)
         super().__init__(*self.background_color, 1000)
@@ -85,34 +124,38 @@ class Keyboard(ColorLayer):
         self.board = BatchNode()
         self.screen = Key('cell', color=self.key_color, position=(
             (self.window_width / 2),
-            (self.board_height + self.screen_height / 2) * (self.cell_size + self.cell_spacing) + self.border_width))
-        self.screen.scale_x = (self.window_width - self.border_width * 2) / self.screen.width
-        self.screen.scale_y = (self.cell_size + self.cell_spacing) * self.screen_height / self.screen.height
-        self.highlight = Key('cell', color=self.highlight_color, opacity=0)
-        self.highlight.scale = self.cell_size / self.highlight.width
-        self.selection = Key('cell', color=self.key_press_color, opacity=0)
-        self.selection.scale = self.cell_size / self.selection.width * self.key_press_scale
+            (self.board_height + self.screen_height / 2) * (self.key_size + self.key_spacing) + self.border_width))
+        self.screen.resize((self.window_width - self.border_width * 2),
+                           (self.key_size + self.key_spacing) * self.screen_height)
+        self.highlight = Key('cell', size=self.key_size, color=self.highlight_color, opacity=0)
+        self.selection = Key('cell', size=self.key_size * self.key_press_scale, color=self.key_press_color, opacity=0)
+        self.cursor = Key('cell', size=self.key_size, color=self.highlight_color, opacity=self.highlight_opacity,
+                          position=(self.border_width, self.window_height - self.border_width),
+                          anchor=(0, self.key_size / 2))
         self.keys = BatchNode()
+        self.overlay = BatchNode()
         self.active_key = BatchNode()
         self.add(self.board, z=1)
         self.add(self.highlight, z=2)
         self.add(self.keys, z=3)
-        self.add(self.active_key, z=3)
+        self.add(self.overlay, z=4)
+        self.add(self.active_key, z=5)
         self.board.add(self.screen)
-        self.active_key.add(self.selection)
+        self.overlay.add(self.selection)
+        self.overlay.add(self.cursor)
 
         for row in range(self.board_height):
-            self.board_sprites = [[Key('cell') for _ in range(self.board_width)] for _ in range(self.board_height)]
+            self.board_sprites = [[Key('cell', size=self.key_size) for _ in range(self.board_width)]
+                                  for _ in range(self.board_height)]
             self.key_sprites = [[Key() for _ in range(self.board_width)] for _ in range(self.board_height)]
 
         for row, col in product(range(self.board_height), range(self.board_width)):
 
             self.board_sprites[row][col].position = self.get_position((row, col))
-            self.board_sprites[row][col].scale = self.cell_size / self.board_sprites[row][col].width
             self.board_sprites[row][col].color = self.get_cell_color((row, col))
             self.board.add(self.board_sprites[row][col])
 
-        self.sublayout = 0
+        self.sublayout = self.default_layout
         self.update_layout()
 
         director.run(scene.Scene(self))
@@ -135,23 +178,23 @@ class Keyboard(ColorLayer):
                     self.board_sprites[row][col].opacity = 255
 
             self.key_sprites[row][col].position = self.get_position((row, col))
-            self.key_sprites[row][col].scale = self.cell_size / self.key_sprites[row][col].width
+            self.key_sprites[row][col].resize(self.key_size)
             self.keys.add(self.key_sprites[row][col])
 
     def get_coordinates(self, x: float, y: float) -> Tuple[int, int]:
         x, y = director.get_virtual_coordinates(x, y)
-        col = round((x - self.window_width / 2) / (self.cell_size + self.cell_spacing)
+        col = round((x - self.window_width / 2) / (self.key_size + self.key_spacing)
                     + (self.board_width - 1) / 2)
         row = round((self.board_height - self.screen_height - 1) / 2
-                    - (y - self.window_height / 2) / (self.cell_size + self.cell_spacing))
+                    - (y - self.window_height / 2) / (self.key_size + self.key_spacing))
         return row, col
 
     def get_position(self, pos: Tuple[int, int]) -> Tuple[float, float]:
         row, col = pos
         x = (col - (self.board_width - 1) / 2) \
-            * (self.cell_size + self.cell_spacing) + self.window_width / 2
+            * (self.key_size + self.key_spacing) + self.window_width / 2
         y = ((self.board_height - self.screen_height - 1) / 2 - row) \
-            * (self.cell_size + self.cell_spacing) + self.window_height / 2
+            * (self.key_size + self.key_spacing) + self.window_height / 2
         return x, y
 
     # From now on we shall unanimously assume that the first coordinate corresponds to row number (AKA vertical axis).
@@ -185,7 +228,7 @@ class Keyboard(ColorLayer):
         key_sprite = self.get_key(self.selected_key)
         self.keys.remove(key_sprite)
         self.active_key.add(key_sprite)
-        key_sprite.scale *= self.key_press_scale
+        key_sprite.resize(self.key_size * self.key_press_scale)
 
     def deselect_key(self) -> None:
         self.selection.opacity = 0
@@ -195,36 +238,40 @@ class Keyboard(ColorLayer):
 
         # move the key to general key node
         key_sprite = self.get_key(self.selected_key)
-        key_sprite.scale /= self.key_press_scale
+        key_sprite.resize(self.key_size)
         self.active_key.remove(key_sprite)
         self.keys.add(key_sprite)
 
         self.selected_key = None
 
     def press_key(self, pos: Tuple[int, int]) -> None:
+        self.image_history.append((self.image_buffer, self.next_key_position.copy()))
         pressed_key = self.get_key(pos)
-        path = self.get_key(pos).get_path()
-        self.image_history.append((self.image_buffer, self.next_key_position))
         if pressed_key.name == self.enter_key:
-            # TODO: add support for start/end/double enters
-            self.next_key_position = [0, self.image_buffer.height if self.image_buffer is not None else 0]
-            return
-        elif self.image_buffer is None:
-            self.image_buffer = Image.open(path)
-            self.next_key_position = [self.image_buffer.width, 0]
+            self.next_key_position = [0, self.next_key_position[1] + self.key_size]
+            key_image = Key().image
         else:
-            key_image = Image.open(path)
-            dx, dy = key_image.size
+            key_image = pressed_key.image
+        image_buffer = BytesIO()
+        key_image.save('temp.png', file=image_buffer)
+        image_buffer.seek(0)
+        key_image = Image.open(image_buffer).resize((self.key_size, self.key_size))
+        if self.image_buffer is None:
+            self.image_buffer = key_image
+            if pressed_key.name != self.enter_key:
+                self.next_key_position = [self.image_buffer.width, 0]
+        else:
             new_buffer = Image.new(
                 mode='RGBA',
-                size=(max(self.image_buffer.width, self.next_key_position[0] + dx),
-                      max(self.image_buffer.height, self.next_key_position[1] + dy)),
+                size=(max(self.image_buffer.width, self.next_key_position[0] + self.key_size),
+                      max(self.image_buffer.height, self.next_key_position[1] + self.key_size)),
                 color=(0, 0, 0, 0)
             )
             new_buffer.paste(self.image_buffer)
-            new_buffer.paste(key_image, self.next_key_position)
+            new_buffer.paste(key_image, self.next_key_position.copy())
             self.image_buffer = new_buffer
-            self.next_key_position = [self.next_key_position[0] + dx, self.next_key_position[1]]
+            if pressed_key.name != self.enter_key:
+                self.next_key_position[0] += self.key_size
         self.update_image()
 
     def update_image(self):
@@ -232,6 +279,8 @@ class Keyboard(ColorLayer):
             if self.screen_image is not None:
                 self.keys.remove(self.screen_image)
             self.screen_image = None
+            self.cursor.position = (self.border_width, self.window_height - self.border_width)
+            self.cursor.scale = 1
             pyperclip.copy('')
             return
         data_buffer = BytesIO()
@@ -241,12 +290,17 @@ class Keyboard(ColorLayer):
         if self.screen_image is not None:
             self.keys.remove(self.screen_image)
         self.screen_image = Sprite(image=screen_image,
-                                   position=(self.border_width, self.window_height - self.border_width),
+                                   position=(self.border_width,
+                                             self.window_height - self.border_width - self.key_spacing),
                                    anchor=(0, screen_image.height))
-        self.screen_image.scale = min(self.screen.width / self.screen_image.width,
+        self.screen_image.scale = min(self.screen.width / (self.screen_image.width + self.key_size),
                                       self.screen.height / self.screen_image.height,
                                       1)
         self.keys.add(self.screen_image)
+        self.cursor.position = (self.border_width + self.next_key_position[0] * self.screen_image.scale,
+                                self.window_height - self.border_width
+                                - self.next_key_position[1] * self.screen_image.scale)
+        self.cursor.scale = self.screen_image.scale
         save_path = 'saved.png'
         self.image_buffer.save(save_path)  # in case my clipboard shenanigans don't work just use the file ig
         save_path = os.path.abspath(save_path).encode('utf-16-le') + b'\0'
@@ -307,11 +361,15 @@ class Keyboard(ColorLayer):
                 key_name = self.get_key(pos).name
                 if key_name in self.layout_switch_keys:
                     self.deselect_key()
-                    if (len(self.layout) > 1 and key_name == self.layout_switch_keys[0]) == (buttons & mouse.LEFT):
-                        self.sublayout = (self.sublayout + len(self.layout) - 1) % len(self.layout)
+                    if type(key_name) == list:
+                        self.sublayout = self.layout_switch_keys.index(key_name)
+                        self.update_layout()
                     else:
-                        self.sublayout = (self.sublayout + 1) % len(self.layout)
-                    self.update_layout()
+                        if (len(self.layout) > 1 and key_name == self.layout_switch_keys[0]) == (buttons & mouse.LEFT):
+                            self.sublayout = (self.sublayout + len(self.layout) - 1) % len(self.layout)
+                        else:
+                            self.sublayout = (self.sublayout + 1) % len(self.layout)
+                        self.update_layout()
                     return
                 elif key_name == self.backspace_key:
                     if len(self.image_history) == 0:
