@@ -99,6 +99,8 @@ class Keyboard(ColorLayer):
         copyattr(self, layout, 'highlight_opacity', 50)
         copyattr(self, layout, 'key_press_color', self.key_color)
         copyattr(self, layout, 'key_press_scale', 1.25)
+        copyattr(self, layout, 'cursor_color', self.highlight_color)
+        copyattr(self, layout, 'cursor_opacity', self.highlight_opacity)
         copyattr(self, layout, 'default_key', None)
         copyattr(self, layout, 'backspace_key', 'backspace')
         copyattr(self, layout, 'enter_key', 'enter')
@@ -129,7 +131,7 @@ class Keyboard(ColorLayer):
                            (self.key_size + self.key_spacing) * self.screen_height)
         self.highlight = Key('cell', size=self.key_size, color=self.highlight_color, opacity=0)
         self.selection = Key('cell', size=self.key_size * self.key_press_scale, color=self.key_press_color, opacity=0)
-        self.cursor = Key('cell', size=self.key_size, color=self.highlight_color, opacity=self.highlight_opacity,
+        self.cursor = Key('cell', size=self.key_size, color=self.cursor_color, opacity=self.cursor_opacity,
                           position=(self.border_width, self.window_height - self.border_width),
                           anchor=(0, self.key_size / 2))
         self.keys = BatchNode()
