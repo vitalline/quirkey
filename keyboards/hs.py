@@ -14,6 +14,7 @@ layout_switch_keys = (
     [['symbol_01', 'symbol_02'], ['symbol_03', 'symbol_04']],
 )
 keyboard_switch_keys = 'k_prev', 'k_next'
+preview_key = [['upper_a', 'upper_b'], ['lower_c', 'lower_d']]
 layout = [
     [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],

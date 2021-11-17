@@ -1,5 +1,7 @@
+import configparser
 import os
 import sys
+from glob import iglob
 from importlib import import_module
 from importlib.util import find_spec
 from io import BytesIO
@@ -99,7 +101,14 @@ class KeyboardManager(MultiplexLayer):
         self.image_buffer = None
         self.image_history = []
         self.next_key_position = [0, 0]
-        layers = [Keyboard('hs', self), Keyboard('hs', self)]
+        try:
+            config = configparser.ConfigParser()
+            config.read('config.ini')
+            load_order = [name.strip() for name in config.get('Keyboard Settings', 'load_order').split(',')
+                          if name.strip()]
+        except configparser.Error:
+            load_order = [name[10:-3] for name in iglob('keyboards/*.py')]
+        layers = [Keyboard(name, self) for name in load_order]
         director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
         super().__init__(*layers)
         for layer in layers:
@@ -118,7 +127,7 @@ class KeyboardManager(MultiplexLayer):
 
 class Keyboard(ColorLayer):
 
-    def __init__(self, layout_name: str, manager: Optional[KeyboardManager] = None):
+    def __init__(self, layout_name: str, manager: KeyboardManager):
         # super boring initialization stuff (bluh bluh)
         self.manager = manager
         self.is_event_handler = True
@@ -143,9 +152,10 @@ class Keyboard(ColorLayer):
         copyattr(self, layout, 'default_key', None)
         copyattr(self, layout, 'backspace_key', 'backspace')
         copyattr(self, layout, 'enter_key', 'enter')
-        copyattr(self, layout, 'default_layout', 0)
-        copyattr(self, layout, 'layout_switch_keys', ())
+        copyattr(self, layout, 'preview_key', None)
         copyattr(self, layout, 'keyboard_switch_keys', ())
+        copyattr(self, layout, 'layout_switch_keys', ())
+        copyattr(self, layout, 'default_layout', 0)
         copyattr(self, layout, 'asset_folder', layout_name)
         self.layout_name = layout_name
         self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else [[]])
@@ -154,9 +164,7 @@ class Keyboard(ColorLayer):
             + self.border_width * 2
 
     def post_init(self):
-
-        super().__init__(*self.background_color, 1000)
-
+        super().__init__(*self.background_color, 1000, self.window_width, self.window_height)
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
@@ -198,24 +206,35 @@ class Keyboard(ColorLayer):
         self.update_layout()
 
     def update_layout(self):
+        preview_keys = [board.preview_key if hasattr(board, 'preview_key') else None for board in self.manager.layers]
+        layer_index = self.manager.layers.index(self)
+        layer_count = len(self.manager.layers)
+        if len(self.keyboard_switch_keys) == 1:
+            new_keyboard_switch_keys = (preview_keys[(layer_index + 1) % layer_count])
+        else:
+            new_keyboard_switch_keys = (preview_keys[(layer_index + layer_count - 1) % layer_count],
+                                        preview_keys[(layer_index + 1) % layer_count])
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
             try:
-                self.key_sprites[row][col] = Key(self.layout[self.sublayout][row][col], self.asset_folder)
+                old_name = self.layout[self.sublayout][row][col]
+                new_name = old_name
+                if new_name in self.keyboard_switch_keys:
+                    replacement_key = new_keyboard_switch_keys[self.keyboard_switch_keys.index(new_name)]
+                    if replacement_key is not None:
+                        new_name = replacement_key
+                new_sprite = Key(new_name, self.asset_folder)
+                new_sprite.name = old_name
             except (IndexError, ResourceNotFoundException):
                 if self.default_key:
-                    self.key_sprites[row][col] = Key(self.default_key, self.asset_folder)
+                    new_sprite = Key(self.default_key, self.asset_folder)
                 else:
-                    self.key_sprites[row][col] = Key()
-            finally:
-                if self.key_sprites[row][col].is_empty():
-                    self.board_sprites[row][col].opacity = 0
-                else:
-                    self.board_sprites[row][col].opacity = 255
-
-            self.key_sprites[row][col].position = self.get_position((row, col))
-            self.key_sprites[row][col].resize(self.key_size)
+                    new_sprite = Key()
+            new_sprite.position = self.get_position((row, col))
+            new_sprite.resize(self.key_size)
+            self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else 255
+            self.key_sprites[row][col] = new_sprite
             self.keys.add(self.key_sprites[row][col])
 
     @property
