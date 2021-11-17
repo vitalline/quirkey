@@ -9,9 +9,9 @@ backspace_key = 'backspace'
 enter_key = 'enter'
 default_layout = 1
 layout_switch_keys = (
-    ['upper_a', 'upper_b', 'upper_c', 'upper_d'],
-    ['lower_a', 'lower_b', 'lower_c', 'lower_d'],
-    ['symbol_01', 'symbol_02', 'symbol_03', 'symbol_04'],
+    [['upper_a', 'upper_b'], ['upper_c', 'upper_d']],
+    [['lower_a', 'lower_b'], ['lower_c', 'lower_d']],
+    [['symbol_01', 'symbol_02'], ['symbol_03', 'symbol_04']],
 )
 keyboard_switch_keys = 'k_prev', 'k_next'
 layout = [

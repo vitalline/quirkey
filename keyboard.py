@@ -5,14 +5,14 @@ from importlib.util import find_spec
 from io import BytesIO
 from itertools import product
 from math import ceil, sqrt
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import win32clipboard as clp
 from PIL import Image
 from cocos import scene
 from cocos.batch import BatchNode
 from cocos.director import director
-from cocos.layer import ColorLayer
+from cocos.layer import ColorLayer, MultiplexLayer
 from cocos.sprite import Sprite
 from pyglet import image
 from pyglet.resource import ResourceNotFoundException
@@ -24,7 +24,7 @@ sys.path.append(os.path.abspath(os.getcwd()))
 
 
 def box(var):
-    return (*var,) if isinstance(var, (List, Tuple)) else (var,)
+    return (*var,) if isinstance(var, (list, tuple)) else (var,)
 
 
 def copyattr(self: object, obj: object, k: str, default: Optional[Any] = None):
@@ -32,41 +32,56 @@ def copyattr(self: object, obj: object, k: str, default: Optional[Any] = None):
 
 
 class Key(Sprite):
-    def __init__(self, name: Union[None, str, List[str]] = None, board: str = 'util',
-                 size: Union[None, int, float, Tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
-        if name is None:
+    def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, board: str = 'util',
+                 size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
+        if name in (None, []):
+            name = 'none'
             board = 'util'
+        self.name = name
+        self.board = board
         if type(name) == list:
-            grid_size = ceil(sqrt(len(name)))
-            grid_shift = grid_size - ceil(len(name) / grid_size)
+            if type(name[0]) == list:
+                grid_height = len(name)
+                grid_width = max(len(row) for row in name)
+                new_name = [string for row in name for string in (row + [''] * (len(row) - grid_width))]
+            else:
+                grid_width = ceil(sqrt(len(name)))
+                grid_height = ceil(len(name) / grid_width)
+                new_name = name[:] + [''] * (len(name) - grid_width * grid_height)
             if size is None:
-                size = 64 * grid_size, 64 * (grid_size - grid_shift)
+                size = 64 * grid_width, 64 * grid_height
             elif type(size) in (int, float):
                 size = size, size
             image_buffer = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
-            for i, subname in enumerate(name):
-                subimage = Image.open(f'keyboards/assets/{board}/{subname}.png')
-                subimage = subimage.resize((size[0] // grid_size, size[1] // grid_size))
+            for i, subname in enumerate(new_name):
+                subimage = Image.open(self.get_path(subname))
+                subimage = subimage.resize((size[0] // grid_width, size[1] // grid_width))
                 image_buffer.paste(subimage, (
-                    round(subimage.width * (i % grid_size)),
-                    round(subimage.height * (i // grid_size + grid_shift / 2))
+                    round(subimage.width * (i % grid_width)),
+                    round(subimage.height * (i // grid_width + (grid_width - grid_height) / 2))
                 ))
             data_buffer = BytesIO()
             image_buffer.save(data_buffer, format='png')
             data_buffer.seek(0)
             super().__init__(image.load('temp.png', file=data_buffer), **kwargs)
         else:
-            super().__init__(f'keyboards/assets/{board}/{name}.png', **kwargs)
+            super().__init__(self.get_path(), **kwargs)
             if size is None:
                 size = self.width, self.height
             elif type(size) in (int, float):
                 size = size, size
         self.resize(*size)
-        self.board = board
-        self.name = name
 
-    def get_path(self) -> str:
-        return f'keyboards/assets/{self.board}/{self.name}.png'
+    def get_path(self, name: str = None, board: str = None) -> str:
+        if name is None:
+            name = self.name
+        if board is None:
+            board = self.board
+        path_string = 'keyboards/assets/{}/{}.png'
+        if os.path.isfile(path_string.format(board, name)):
+            return path_string.format(board, name)
+        else:
+            return path_string.format('util', 'none')
 
     def is_empty(self) -> bool:
         return self.name is None
@@ -78,17 +93,41 @@ class Key(Sprite):
         self.scale_y = height * self.scale_y / self.height
 
 
+class KeyboardManager(MultiplexLayer):
+    def __init__(self):
+        self.screen_image = None
+        self.image_buffer = None
+        self.image_history = []
+        self.next_key_position = [0, 0]
+        layers = [Keyboard('hs', self), Keyboard('hs', self)]
+        director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
+        super().__init__(*layers)
+        for layer in layers:
+            layer.post_init()
+
+    def run(self):
+        director.run(scene.Scene(self))
+
+    def switch_to(self, layer_number: int):
+        if self.screen_image is not None and self.screen_image.parent == self.layers[self.enabled_layer]:
+            self.layers[self.enabled_layer].remove(self.screen_image)
+        super().switch_to(layer_number)
+        self.layers[layer_number].update_image()
+        director.window.set_size(self.layers[layer_number].window_width, self.layers[layer_number].window_height)
+
+
 class Keyboard(ColorLayer):
 
-    def __init__(self, layout_name: str):
+    def __init__(self, layout_name: str, manager: Optional[KeyboardManager] = None):
+        # super boring initialization stuff (bluh bluh)
+        self.manager = manager
         self.is_event_handler = True
 
-        # super boring initialization stuff (bluh bluh)
         layout = import_module(f'keyboards.{layout_name}')
         layout_edit = import_module(f'keyboards.{layout_name}_edit') \
             if find_spec(f'keyboards.{layout_name}_edit') else layout
-        copyattr(self, layout, 'board_height', 4)
-        copyattr(self, layout, 'board_width', 13)  # homestuck is alive!!1
+        copyattr(self, layout, 'board_height', 0)
+        copyattr(self, layout, 'board_width', 0)
         copyattr(self, layout, 'screen_height', 4)
         copyattr(self, layout, 'key_size', 64)
         copyattr(self, layout, 'key_spacing', 4)
@@ -113,13 +152,11 @@ class Keyboard(ColorLayer):
         self.window_width = self.board_width * (self.key_size + self.key_spacing) + self.border_width * 2
         self.window_height = (self.board_height + self.screen_height) * (self.key_size + self.key_spacing) \
             + self.border_width * 2
-        director.init(width=self.window_width, height=self.window_height, autoscale=False)
+
+    def post_init(self):
+
         super().__init__(*self.background_color, 1000)
 
-        self.screen_image = None
-        self.image_buffer = None
-        self.image_history = []
-        self.next_key_position = [0, 0]
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
@@ -160,8 +197,6 @@ class Keyboard(ColorLayer):
         self.sublayout = self.default_layout
         self.update_layout()
 
-        director.run(scene.Scene(self))
-
     def update_layout(self):
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
@@ -183,7 +218,35 @@ class Keyboard(ColorLayer):
             self.key_sprites[row][col].resize(self.key_size)
             self.keys.add(self.key_sprites[row][col])
 
-    def get_coordinates(self, x: float, y: float) -> Tuple[int, int]:
+    @property
+    def screen_image(self) -> Optional[Sprite]:
+        return self.manager.screen_image
+
+    @screen_image.setter
+    def screen_image(self, value: Optional[Sprite]) -> None:
+        self.manager.screen_image = value
+
+    @property
+    def image_buffer(self) -> Optional[Image.Image]:
+        return self.manager.image_buffer
+
+    @image_buffer.setter
+    def image_buffer(self, value: Optional[Image.Image]) -> None:
+        self.manager.image_buffer = value
+
+    @property
+    def image_history(self) -> list[tuple[Optional[Image.Image], list[int]]]:
+        return self.manager.image_history
+
+    @property
+    def next_key_position(self) -> list[int]:
+        return self.manager.next_key_position
+
+    @next_key_position.setter
+    def next_key_position(self, value: list[int]) -> None:
+        self.manager.next_key_position = value
+
+    def get_coordinates(self, x: float, y: float) -> tuple[int, int]:
         x, y = director.get_virtual_coordinates(x, y)
         col = round((x - self.window_width / 2) / (self.key_size + self.key_spacing)
                     + (self.board_width - 1) / 2)
@@ -191,7 +254,7 @@ class Keyboard(ColorLayer):
                     - (y - self.window_height / 2) / (self.key_size + self.key_spacing))
         return row, col
 
-    def get_position(self, pos: Tuple[int, int]) -> Tuple[float, float]:
+    def get_position(self, pos: tuple[int, int]) -> tuple[float, float]:
         row, col = pos
         x = (col - (self.board_width - 1) / 2) \
             * (self.key_size + self.key_spacing) + self.window_width / 2
@@ -200,22 +263,22 @@ class Keyboard(ColorLayer):
         return x, y
 
     # From now on we shall unanimously assume that the first coordinate corresponds to row number (AKA vertical axis).
-    def get_cell(self, pos: Tuple[int, int]) -> Sprite:
+    def get_cell(self, pos: tuple[int, int]) -> Sprite:
         return self.board_sprites[pos[0]][pos[1]]
 
-    def get_key(self, pos: Tuple[int, int]) -> Key:
+    def get_key(self, pos: tuple[int, int]) -> Key:
         return self.key_sprites[pos[0]][pos[1]]
 
-    def not_on_board(self, pos: Tuple[int, int]) -> bool:
+    def not_on_board(self, pos: tuple[int, int]) -> bool:
         return pos[0] < 0 or pos[0] >= self.board_height or pos[1] < 0 or pos[1] >= self.board_width
 
-    def not_a_key(self, pos: Union[None, Tuple[int, int]]) -> bool:
+    def not_a_key(self, pos: Union[None, tuple[int, int]]) -> bool:
         return pos is None or self.not_on_board(pos) or self.get_key(pos).is_empty()
 
     def nothing_selected(self) -> bool:
         return self.not_a_key(self.selected_key)
 
-    def select_key(self, pos: Tuple[int, int]) -> None:
+    def select_key(self, pos: tuple[int, int]) -> None:
         if self.not_a_key(pos):
             return  # we shouldn't select a nonexistent key
         if pos == self.selected_key:
@@ -246,7 +309,7 @@ class Keyboard(ColorLayer):
 
         self.selected_key = None
 
-    def press_key(self, pos: Tuple[int, int]) -> None:
+    def press_key(self, pos: tuple[int, int]) -> None:
         self.image_history.append((self.image_buffer, self.next_key_position.copy()))
         pressed_key = self.get_key(pos)
         if pressed_key.name == self.enter_key:
@@ -278,8 +341,8 @@ class Keyboard(ColorLayer):
 
     def update_image(self):
         if self.image_buffer is None:
-            if self.screen_image is not None:
-                self.keys.remove(self.screen_image)
+            if self.screen_image is not None and self.screen_image.parent == self:
+                self.remove(self.screen_image)
             self.screen_image = None
             self.cursor.position = (self.border_width, self.window_height - self.border_width)
             self.cursor.scale = 1
@@ -289,8 +352,8 @@ class Keyboard(ColorLayer):
         self.image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
         screen_image = image.load('temp.png', file=data_buffer)
-        if self.screen_image is not None:
-            self.keys.remove(self.screen_image)
+        if self.screen_image is not None and self.screen_image.parent == self:
+            self.remove(self.screen_image)
         self.screen_image = Sprite(image=screen_image,
                                    position=(self.border_width,
                                              self.window_height - self.border_width - self.key_spacing),
@@ -298,7 +361,7 @@ class Keyboard(ColorLayer):
         self.screen_image.scale = min(self.screen.width / (self.screen_image.width + self.key_size),
                                       self.screen.height / self.screen_image.height,
                                       1)
-        self.keys.add(self.screen_image)
+        self.add(self.screen_image, z=3)
         self.cursor.position = (self.border_width + self.next_key_position[0] * self.screen_image.scale,
                                 self.window_height - self.border_width
                                 - self.next_key_position[1] * self.screen_image.scale)
@@ -313,7 +376,11 @@ class Keyboard(ColorLayer):
         clp.SetClipboardData(clp.RegisterClipboardFormat('image/png'), data_buffer.getvalue())
         clp.CloseClipboard()
 
-    def extend_layout(self, layout: List[List[List[str]]]):
+    def extend_layout(self, layout: list[list[list[str]]]):
+        if self.board_height == 0:
+            self.board_height = max(len(sub) for sub in layout)
+        if self.board_width == 0:
+            self.board_width = max(len(row) for sub in layout for row in sub)
         new_layout = [[['' for _ in range(self.board_width)]
                        for _ in range(self.board_height)]
                       for _ in range(len(layout))]
@@ -361,16 +428,24 @@ class Keyboard(ColorLayer):
             if pos == selected:
                 self.deselect_key()
                 key_name = self.get_key(pos).name
-                if key_name in self.layout_switch_keys:
-                    self.deselect_key()
+                if key_name in self.keyboard_switch_keys:
+                    length = len(self.manager.layers)
+                    if len(self.keyboard_switch_keys) > 1 and key_name == self.keyboard_switch_keys[0]:
+                        self.manager.switch_to((self.manager.enabled_layer + length - 1) % length)
+                    else:
+                        self.manager.switch_to((self.manager.enabled_layer + 1) % length)
+                    return
+                elif key_name in self.layout_switch_keys:
                     if type(key_name) == list:
                         self.sublayout = self.layout_switch_keys.index(key_name)
                         self.update_layout()
                     else:
-                        if (len(self.layout) > 1 and key_name == self.layout_switch_keys[0]) == (buttons & mouse.LEFT):
-                            self.sublayout = (self.sublayout + len(self.layout) - 1) % len(self.layout)
+                        length = len(self.layout)
+                        if (len(self.layout_switch_keys) > 1 and key_name == self.layout_switch_keys[0]) \
+                                == (buttons & mouse.LEFT):
+                            self.sublayout = (self.sublayout + length - 1) % length
                         else:
-                            self.sublayout = (self.sublayout + 1) % len(self.layout)
+                            self.sublayout = (self.sublayout + 1) % length
                         self.update_layout()
                     return
                 elif key_name == self.backspace_key:
@@ -387,8 +462,6 @@ class Keyboard(ColorLayer):
                 return
             if self.not_on_board(pos):
                 pos = selected  # to avoid dragging a key off the board, place it back on its cell
-
-            self.deselect_key()  # remove selection
 
             if selected == pos:
                 return
@@ -417,11 +490,11 @@ class Keyboard(ColorLayer):
                 pass
 
     def run(self):
-        pass
+        director.run(scene.Scene(self))
 
     def get_cell_color(self, _):
         return self.key_color
 
 
 if __name__ == '__main__':
-    Keyboard('hs').run()
+    KeyboardManager().run()
