@@ -158,7 +158,6 @@ class Keyboard(ColorLayer):
         self.manager = manager
         self.is_event_handler = True
 
-        copyattr(self, self.manager, 'screen_height')
         copyattr(self, self.manager, 'key_size')
         copyattr(self, self.manager, 'key_spacing')
         copyattr(self, self.manager, 'border_width')
@@ -178,7 +177,6 @@ class Keyboard(ColorLayer):
         copyattr(self, layout, 'board_height', 0)
         copyattr(self, layout, 'board_width', 0)
         copyattr(self, layout, 'screen_height', 3)
-        copyattr(self, layout, 'default_key', None)
         copyattr(self, layout, 'backspace_key', 'backspace')
         copyattr(self, layout, 'enter_key', 'enter')
         copyattr(self, layout, 'preview_key', None)

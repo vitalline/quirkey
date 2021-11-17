@@ -2,7 +2,6 @@ board_height = 5
 board_width = 10
 screen_height = 4
 asset_folder = 'hs'
-default_key = None
 backspace_key = 'backspace'
 enter_key = 'enter'
 default_layout = 1
