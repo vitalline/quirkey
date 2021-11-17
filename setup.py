@@ -44,7 +44,7 @@ setup(
             'include_files': gen_data_files(
                 ['keyboards', 'quirks'],
                 ['keyboards/__pycache__', 'quirks/__pycache__'],
-            ),
+            ) + ['config.ini'],
         }
     },
     executables=[

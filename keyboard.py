@@ -11,18 +11,20 @@ from typing import Any, Optional, Union
 
 import win32clipboard as clp
 from PIL import Image
+from PIL.ImageColor import getrgb
 from cocos import scene
 from cocos.batch import BatchNode
 from cocos.director import director
 from cocos.layer import ColorLayer, MultiplexLayer
 from cocos.sprite import Sprite
 from pyglet import image
-from pyglet.resource import ResourceNotFoundException
 from pyglet.window import key, mouse
 
 import pyperclip
 
 sys.path.append(os.path.abspath(os.getcwd()))
+
+color = tuple[int, int, int]
 
 
 def box(var):
@@ -36,7 +38,9 @@ def copyattr(self: object, obj: object, k: str, default: Optional[Any] = None):
 class Key(Sprite):
     def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, board: str = 'util',
                  size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
+        self.empty = False
         if name in (None, []):
+            self.empty = True
             name = 'none'
             board = 'util'
         self.name = name
@@ -74,19 +78,20 @@ class Key(Sprite):
                 size = size, size
         self.resize(*size)
 
-    def get_path(self, name: str = None, board: str = None) -> str:
+    def get_path(self, name: str = None, board: str = None, update: bool = False) -> str:
         if name is None:
             name = self.name
         if board is None:
             board = self.board
         path_string = 'keyboards/assets/{}/{}.png'
-        if os.path.isfile(path_string.format(board, name)):
-            return path_string.format(board, name)
-        else:
-            return path_string.format('util', 'none')
+        if not os.path.isfile(path_string.format(board, name)):
+            if board == self.board and name == self.name:
+                self.empty = True
+            board, name = 'util', 'none'
+        return path_string.format(board, name)
 
     def is_empty(self) -> bool:
-        return self.name is None
+        return self.empty
 
     def resize(self, width: Union[int, float], height: Union[None, int, float] = None) -> None:
         if height is None:
@@ -101,24 +106,45 @@ class KeyboardManager(MultiplexLayer):
         self.image_buffer = None
         self.image_history = []
         self.next_key_position = [0, 0]
+        self.config = configparser.ConfigParser()
+        self.config.read('config.ini')
         try:
-            config = configparser.ConfigParser()
-            config.read('config.ini')
-            load_order = [name.strip() for name in config.get('Keyboard Settings', 'load_order').split(',')
+            load_order = [name.strip() for name in self.config.get('Keyboard Settings', 'load_order').split(',')
                           if name.strip()]
         except configparser.Error:
             load_order = [name[10:-3] for name in iglob('keyboards/*.py')]
+        self.load_value('key_size', 64)
+        self.load_value('key_spacing', 4)
+        self.load_value('border_width', 16)
+        self.load_value('background_color', (204, 204, 204))
+        self.load_value('key_color', (220, 220, 220))
+        self.load_value('screen_color', (220, 220, 220))
+        self.load_value('highlight_color', (255, 255, 255))
+        self.load_value('highlight_opacity', 50)
+        self.load_value('key_press_color', self.key_color)
+        self.load_value('key_press_scale', 1.25)
+        self.load_value('cursor_color', self.highlight_color)
+        self.load_value('cursor_opacity', self.highlight_opacity)
         layers = [Keyboard(name, self) for name in load_order]
         director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
         super().__init__(*layers)
         for layer in layers:
             layer.post_init()
 
+    def load_value(self, k: str, default: Any) -> None:
+        value = self.config.get('Keyboard Settings', k, fallback=default)
+        if type(default) == tuple and len(default) == 3:  # we just kinda *assume* this is a color
+            setattr(self, k, getrgb(value)[:3])
+        else:
+            setattr(self, k, type(default)(value))
+
     def run(self):
         director.run(scene.Scene(self))
 
     def switch_to(self, layer_number: int):
-        if self.screen_image is not None and self.screen_image.parent == self.layers[self.enabled_layer]:
+        if self.screen_image is not None \
+                and self.screen_image.parent == self.layers[self.enabled_layer] \
+                and self.enabled_layer != layer_number:
             self.layers[self.enabled_layer].remove(self.screen_image)
         super().switch_to(layer_number)
         self.layers[layer_number].update_image()
@@ -132,23 +158,26 @@ class Keyboard(ColorLayer):
         self.manager = manager
         self.is_event_handler = True
 
+        copyattr(self, self.manager, 'screen_height')
+        copyattr(self, self.manager, 'key_size')
+        copyattr(self, self.manager, 'key_spacing')
+        copyattr(self, self.manager, 'border_width')
+        copyattr(self, self.manager, 'background_color')
+        copyattr(self, self.manager, 'key_color')
+        copyattr(self, self.manager, 'screen_color')
+        copyattr(self, self.manager, 'highlight_color')
+        copyattr(self, self.manager, 'highlight_opacity')
+        copyattr(self, self.manager, 'key_press_color')
+        copyattr(self, self.manager, 'key_press_scale')
+        copyattr(self, self.manager, 'cursor_color')
+        copyattr(self, self.manager, 'cursor_opacity')
+
         layout = import_module(f'keyboards.{layout_name}')
         layout_edit = import_module(f'keyboards.{layout_name}_edit') \
             if find_spec(f'keyboards.{layout_name}_edit') else layout
         copyattr(self, layout, 'board_height', 0)
         copyattr(self, layout, 'board_width', 0)
-        copyattr(self, layout, 'screen_height', 4)
-        copyattr(self, layout, 'key_size', 64)
-        copyattr(self, layout, 'key_spacing', 4)
-        copyattr(self, layout, 'border_width', 16)
-        copyattr(self, layout, 'background_color', (204, 204, 204))
-        copyattr(self, layout, 'key_color', (220, 220, 220))
-        copyattr(self, layout, 'highlight_color', (255, 255, 255))
-        copyattr(self, layout, 'highlight_opacity', 50)
-        copyattr(self, layout, 'key_press_color', self.key_color)
-        copyattr(self, layout, 'key_press_scale', 1.25)
-        copyattr(self, layout, 'cursor_color', self.highlight_color)
-        copyattr(self, layout, 'cursor_opacity', self.highlight_opacity)
+        copyattr(self, layout, 'screen_height', 3)
         copyattr(self, layout, 'default_key', None)
         copyattr(self, layout, 'backspace_key', 'backspace')
         copyattr(self, layout, 'enter_key', 'enter')
@@ -169,7 +198,7 @@ class Keyboard(ColorLayer):
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
-        self.screen = Key('cell', color=self.key_color, position=(
+        self.screen = Key('cell', color=self.screen_color, position=(
             (self.window_width / 2),
             (self.board_height + self.screen_height / 2) * (self.key_size + self.key_spacing) + self.border_width))
         self.screen.resize((self.window_width - self.border_width * 2),
@@ -217,20 +246,15 @@ class Keyboard(ColorLayer):
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
-            try:
-                old_name = self.layout[self.sublayout][row][col]
-                new_name = old_name
-                if new_name in self.keyboard_switch_keys:
-                    replacement_key = new_keyboard_switch_keys[self.keyboard_switch_keys.index(new_name)]
-                    if replacement_key is not None:
-                        new_name = replacement_key
-                new_sprite = Key(new_name, self.asset_folder)
+            old_name = self.layout[self.sublayout][row][col]
+            new_name = old_name
+            if new_name in self.keyboard_switch_keys:
+                replacement_key = new_keyboard_switch_keys[self.keyboard_switch_keys.index(new_name)]
+                if replacement_key is not None:
+                    new_name = replacement_key
+            new_sprite = Key(new_name, self.asset_folder)
+            if new_name != old_name:
                 new_sprite.name = old_name
-            except (IndexError, ResourceNotFoundException):
-                if self.default_key:
-                    new_sprite = Key(self.default_key, self.asset_folder)
-                else:
-                    new_sprite = Key()
             new_sprite.position = self.get_position((row, col))
             new_sprite.resize(self.key_size)
             self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else 255
@@ -442,10 +466,10 @@ class Keyboard(ColorLayer):
         if self.nothing_selected():
             return
         if buttons & (mouse.LEFT | mouse.RIGHT):
-            selected = self.selected_key
             pos = self.get_coordinates(x, y)
+            selected = self.selected_key
+            self.deselect_key()
             if pos == selected:
-                self.deselect_key()
                 key_name = self.get_key(pos).name
                 if key_name in self.keyboard_switch_keys:
                     length = len(self.manager.layers)

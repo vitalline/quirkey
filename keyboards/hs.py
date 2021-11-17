@@ -1,8 +1,6 @@
 board_height = 5
 board_width = 10
 screen_height = 4
-cell_size = 64
-cell_spacing = 4
 asset_folder = 'hs'
 default_key = None
 backspace_key = 'backspace'
