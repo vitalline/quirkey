@@ -133,7 +133,7 @@ class KeyboardManager(MultiplexLayer):
 
     def load_value(self, k: str, default: Any) -> None:
         value = self.config.get('Keyboard Settings', k, fallback=default)
-        if type(default) == tuple and len(default) == 3:  # we just kinda *assume* this is a color
+        if type(default) == tuple and len(default) == 3 and default != value:  # we just kinda *assume* this is a color
             setattr(self, k, getrgb(value)[:3])
         else:
             setattr(self, k, type(default)(value))
