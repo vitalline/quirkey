@@ -237,10 +237,12 @@ class Keyboard(ColorLayer):
         layer_index = self.manager.layers.index(self)
         layer_count = len(self.manager.layers)
         if len(self.keyboard_switch_keys) == 1:
-            new_keyboard_switch_keys = (preview_keys[(layer_index + 1) % layer_count])
+            new_keyboard_switch_keys = (preview_keys[(layer_index + 1) % layer_count] if layer_count > 1 else '')
         else:
-            new_keyboard_switch_keys = (preview_keys[(layer_index + layer_count - 1) % layer_count],
-                                        preview_keys[(layer_index + 1) % layer_count])
+            new_keyboard_switch_keys = (
+                preview_keys[(layer_index + layer_count - 1) % layer_count] if layer_count > 2 else '',
+                preview_keys[(layer_index + 1) % layer_count] if layer_count > 1 else ''
+            )
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
