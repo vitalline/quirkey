@@ -36,15 +36,15 @@ def copyattr(self: object, obj: object, k: str, default: Optional[Any] = None):
 
 
 class Key(Sprite):
-    def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, board: str = 'util',
+    def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, folder: str = 'util',
                  size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
         self.empty = False
         if name in (None, []):
             self.empty = True
             name = 'none'
-            board = 'util'
+            folder = 'util'
         self.name = name
-        self.board = board
+        self.folder = folder
         if type(name) == list:
             if type(name[0]) == list:
                 grid_height = len(name)
@@ -70,6 +70,7 @@ class Key(Sprite):
             image_buffer.save(data_buffer, format='png')
             data_buffer.seek(0)
             super().__init__(image.load('temp.png', file=data_buffer), **kwargs)
+            self.rename(new_name)
         else:
             super().__init__(self.get_path(), **kwargs)
             if size is None:
@@ -78,20 +79,25 @@ class Key(Sprite):
                 size = size, size
         self.resize(*size)
 
-    def get_path(self, name: str = None, board: str = None, update: bool = False) -> str:
+    def get_path(self, name: str = None, folder: str = None) -> str:
         if name is None:
             name = self.name
-        if board is None:
-            board = self.board
+        if folder is None:
+            folder = self.folder
         path_string = 'keyboards/assets/{}/{}.png'
-        if not os.path.isfile(path_string.format(board, name)):
-            if board == self.board and name == self.name:
+        if not os.path.isfile(path_string.format(folder, name)):
+            if folder == self.folder and name == self.name:
                 self.empty = True
-            board, name = 'util', 'none'
-        return path_string.format(board, name)
+            folder, name = 'util', 'none'
+        return path_string.format(folder, name)
 
     def is_empty(self) -> bool:
         return self.empty
+
+    def rename(self, new_name) -> None:
+        if type(new_name) == list:
+            new_name = '|'.join(new_name)
+        self.name = new_name
 
     def resize(self, width: Union[int, float], height: Union[None, int, float] = None) -> None:
         if height is None:
@@ -128,7 +134,10 @@ class KeyboardManager(MultiplexLayer):
         layers = [Keyboard(name, self) for name in load_order]
         director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
         super().__init__(*layers)
-        for layer in layers:
+        self.layer_dict = {layer.name: (i, layer) for i, layer in enumerate(self.layers)}
+        self.layer_dict[None] = (-1, None)
+        self.load_preview_keys()
+        for layer in self.layers:
             layer.post_init()
 
     def load_value(self, k: str, default: Any) -> None:
@@ -138,6 +147,22 @@ class KeyboardManager(MultiplexLayer):
         else:
             setattr(self, k, type(default)(value))
 
+    def load_preview_keys(self) -> None:
+        self.preview_keys = dict()
+        for layer in self.layers:
+            default_preview = layer.preview_keys.get('default', None)
+            for k in layer.preview_keys:
+                if k != 'default':
+                    self.preview_keys[f'{layer.name}/{k}'] = layer.preview_keys[k]
+            for k in layer.layout:
+                if f'{layer.name}/{k}' not in self.preview_keys:
+                    self.preview_keys[f'{layer.name}/{k}'] = default_preview
+            if f'{layer.name}' not in self.preview_keys:
+                self.preview_keys[f'{layer.name}'] = default_preview
+
+    def get_layer(self, name: str) -> Optional[int]:
+        return self.layer_dict.get(name, self.layer_dict[None])
+
     def run(self):
         director.run(scene.Scene(self))
 
@@ -146,14 +171,16 @@ class KeyboardManager(MultiplexLayer):
                 and self.screen_image.parent == self.layers[self.enabled_layer] \
                 and self.enabled_layer != layer_number:
             self.layers[self.enabled_layer].remove(self.screen_image)
+        self.layers[layer_number].update_highlight(*self.layers[self.enabled_layer].highlight.position)
         super().switch_to(layer_number)
+        self.layers[layer_number].update_layout()
         self.layers[layer_number].update_image()
         director.window.set_size(self.layers[layer_number].window_width, self.layers[layer_number].window_height)
 
 
 class Keyboard(ColorLayer):
 
-    def __init__(self, layout_name: str, manager: KeyboardManager):
+    def __init__(self, name: str, manager: KeyboardManager):
         # super boring initialization stuff (bluh bluh)
         self.manager = manager
         self.is_event_handler = True
@@ -171,21 +198,19 @@ class Keyboard(ColorLayer):
         copyattr(self, self.manager, 'cursor_color')
         copyattr(self, self.manager, 'cursor_opacity')
 
-        layout = import_module(f'keyboards.{layout_name}')
-        layout_edit = import_module(f'keyboards.{layout_name}_edit') \
-            if find_spec(f'keyboards.{layout_name}_edit') else layout
+        layout = import_module(f'keyboards.{name}')
+        layout_edit = import_module(f'keyboards.{name}_edit') \
+            if find_spec(f'keyboards.{name}_edit') else layout
         copyattr(self, layout, 'board_height', 0)
         copyattr(self, layout, 'board_width', 0)
         copyattr(self, layout, 'screen_height', 3)
         copyattr(self, layout, 'backspace_key', 'backspace')
         copyattr(self, layout, 'enter_key', 'enter')
-        copyattr(self, layout, 'preview_key', None)
-        copyattr(self, layout, 'keyboard_switch_keys', ())
-        copyattr(self, layout, 'layout_switch_keys', ())
-        copyattr(self, layout, 'default_layout', 0)
-        copyattr(self, layout, 'asset_folder', layout_name)
-        self.layout_name = layout_name
-        self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else [[]])
+        copyattr(self, layout, 'preview_keys', dict())
+        copyattr(self, layout, 'asset_folder', name)
+        self.name = name
+        self.layout = self.extend_layout(layout_edit.layout if hasattr(layout_edit, 'layout') else {'': [[]]})
+        copyattr(self, layout, 'default_layout', sorted(self.layout.keys())[0])
         self.window_width = self.board_width * (self.key_size + self.key_spacing) + self.border_width * 2
         self.window_height = (self.board_height + self.screen_height) * (self.key_size + self.key_spacing) \
             + self.border_width * 2
@@ -233,28 +258,26 @@ class Keyboard(ColorLayer):
         self.update_layout()
 
     def update_layout(self):
-        preview_keys = [board.preview_key if hasattr(board, 'preview_key') else None for board in self.manager.layers]
-        layer_index = self.manager.layers.index(self)
-        layer_count = len(self.manager.layers)
-        if len(self.keyboard_switch_keys) == 1:
-            new_keyboard_switch_keys = (preview_keys[(layer_index + 1) % layer_count] if layer_count > 1 else '')
-        else:
-            new_keyboard_switch_keys = (
-                preview_keys[(layer_index + layer_count - 1) % layer_count] if layer_count > 2 else '',
-                preview_keys[(layer_index + 1) % layer_count] if layer_count > 1 else ''
-            )
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
             old_name = self.layout[self.sublayout][row][col]
-            new_name = old_name
-            if new_name in self.keyboard_switch_keys:
-                replacement_key = new_keyboard_switch_keys[self.keyboard_switch_keys.index(new_name)]
-                if replacement_key is not None:
-                    new_name = replacement_key
-            new_sprite = Key(new_name, self.asset_folder)
-            if new_name != old_name:
-                new_sprite.name = old_name
+            path_name = old_name.split(':')[0]
+            layout_name = path_name.split('/')[0]
+            for name in old_name, path_name, layout_name:
+                if name in self.manager.preview_keys:
+                    _, layer = self.manager.get_layer(layout_name)
+                    asset_folder = layer.asset_folder if layer is not None else self.asset_folder
+                    new_name = self.manager.preview_keys[name]
+                    new_sprite = Key(new_name, asset_folder)
+                    new_sprite.rename(old_name)
+                    break
+            else:
+                if old_name in self.preview_keys:
+                    new_sprite = Key(self.preview_keys[old_name], self.asset_folder)
+                    new_sprite.rename(old_name)
+                else:
+                    new_sprite = Key(old_name, self.asset_folder)
             new_sprite.position = self.get_position((row, col))
             new_sprite.resize(self.key_size)
             self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else 255
@@ -419,29 +442,37 @@ class Keyboard(ColorLayer):
         clp.SetClipboardData(clp.RegisterClipboardFormat('image/png'), data_buffer.getvalue())
         clp.CloseClipboard()
 
-    def extend_layout(self, layout: list[list[list[str]]]):
+    def extend_layout(self, layout: dict):
         if self.board_height == 0:
-            self.board_height = max(len(sub) for sub in layout)
+            self.board_height = max(len(layout[k]) for k in layout)
         if self.board_width == 0:
-            self.board_width = max(len(row) for sub in layout for row in sub)
-        new_layout = [[['' for _ in range(self.board_width)]
-                       for _ in range(self.board_height)]
-                      for _ in range(len(layout))]
-        for sub in range(len(new_layout)):
-            for row in range(len(new_layout[sub])):
-                for col in range(len(new_layout[sub][row])):
+            self.board_width = max(len(row) for k in layout for row in layout[k])
+        new_layout = {k: [['' for _ in range(self.board_width)]
+                      for _ in range(self.board_height)]
+                      for k in layout.keys()}
+        for k in new_layout.keys():
+            for row in range(len(new_layout[k])):
+                for col in range(len(new_layout[k][row])):
                     try:
-                        new_layout[sub][row][col] = layout[sub][row][col]
+                        new_layout[k][row][col] = layout[k][row][col]
                     except IndexError:
                         pass
         return new_layout
 
     def pretty_layout(self):
         endl = '\n'
-        return '[\n' + [''.join(
-            '    [\n' + f"{''.join([f'        {repr(row)},{endl}' for row in sub])}" +
-            '    ],\n' for sub in self.layout
-        )][0] + ']'
+        return '{\n' + [''.join(
+            f"    '{k}': [\n" + f"{''.join([f'        {repr(row)},{endl}' for row in self.layout[k]])}" +
+            '    ],\n' for k in self.layout
+        )][0] + '}\n'
+
+    def update_highlight(self, x, y) -> None:
+        pos = self.get_coordinates(x, y)
+        if self.not_a_key(pos):
+            self.highlight.opacity = 0
+        else:
+            self.highlight.opacity = self.highlight_opacity
+            self.highlight.position = self.get_position(pos)
 
     def on_mouse_press(self, x, y, buttons, _modifiers) -> None:
         if buttons & (mouse.LEFT | mouse.RIGHT):
@@ -452,12 +483,7 @@ class Keyboard(ColorLayer):
             self.select_key(pos)
 
     def on_mouse_motion(self, x, y, dx, dy) -> None:
-        pos = self.get_coordinates(x + dx, y + dy)
-        if self.not_a_key(pos):
-            self.highlight.opacity = 0
-        else:
-            self.highlight.opacity = self.highlight_opacity
-            self.highlight.position = self.get_position(pos)
+        self.update_highlight(x + dx, y + dy)
 
     def on_mouse_drag(self, x, y, dx, dy, _buttons, _modifiers) -> None:
         self.on_mouse_motion(x, y, dx, dy)  # move the highlight as well!
@@ -471,25 +497,22 @@ class Keyboard(ColorLayer):
             self.deselect_key()
             if pos == selected:
                 key_name = self.get_key(pos).name
-                if key_name in self.keyboard_switch_keys:
-                    length = len(self.manager.layers)
-                    if len(self.keyboard_switch_keys) > 1 and key_name == self.keyboard_switch_keys[0]:
-                        self.manager.switch_to((self.manager.enabled_layer + length - 1) % length)
-                    else:
-                        self.manager.switch_to((self.manager.enabled_layer + 1) % length)
-                    return
-                elif key_name in self.layout_switch_keys:
-                    if type(key_name) == list:
-                        self.sublayout = self.layout_switch_keys.index(key_name)
-                        self.update_layout()
-                    else:
-                        length = len(self.layout)
-                        if (len(self.layout_switch_keys) > 1 and key_name == self.layout_switch_keys[0]) \
-                                == (buttons & mouse.LEFT):
-                            self.sublayout = (self.sublayout + length - 1) % length
-                        else:
-                            self.sublayout = (self.sublayout + 1) % length
-                        self.update_layout()
+                path_name = key_name.split(':')[0]
+                layout_path = path_name.split('/')
+                layout_name = layout_path[0]
+                for name in key_name, path_name, layout_name:
+                    if name in self.manager.preview_keys:
+                        name, sublayout = layout_name, (layout_path[1] if len(layout_path) > 1 else '')
+                        index, layer = self.manager.get_layer(name)
+                        if sublayout in layer.layout:
+                            layer.sublayout = sublayout
+                        self.manager.switch_to(index)
+                        return
+                if key_name in self.preview_keys:
+                    sublayout = key_name.split(':')[0]
+                    if sublayout in self.layout:
+                        self.sublayout = sublayout
+                    self.update_layout()
                     return
                 elif key_name == self.backspace_key:
                     if len(self.image_history) == 0:
@@ -523,7 +546,7 @@ class Keyboard(ColorLayer):
             self.layout[self.sublayout][selected[0]][selected[1]] = swapped_key
 
             # print(self.pretty_layout())
-            layout_edit = open(f'keyboards/{self.layout_name}_edit.py', 'w')
+            layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
             layout_edit.write(f'layout = {self.pretty_layout()}')
             layout_edit.close()
 

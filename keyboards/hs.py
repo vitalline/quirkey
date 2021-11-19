@@ -4,16 +4,15 @@ screen_height = 4
 asset_folder = 'hs'
 backspace_key = 'backspace'
 enter_key = 'enter'
-default_layout = 1
-layout_switch_keys = (
-    [['upper_a', 'upper_b'], ['upper_c', 'upper_d']],
-    [['lower_a', 'lower_b'], ['lower_c', 'lower_d']],
-    [['symbol_01', 'symbol_02'], ['symbol_03', 'symbol_04']],
-)
-keyboard_switch_keys = 'k_prev', 'k_next'
-preview_key = [['upper_a', 'upper_b'], ['lower_c', 'lower_d']]
-layout = [
-    [
+default_layout = 'lower'
+preview_keys = {
+    'upper': [['upper_a', 'upper_b'], ['upper_c', 'upper_d']],
+    'lower': [['lower_a', 'lower_b'], ['lower_c', 'lower_d']],
+    'symbols': [['symbol_01', 'symbol_02'], ['symbol_03', 'symbol_04']],
+    'default': [['upper_h', 'upper_s']]
+}
+layout = {
+    'upper': [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
         ['upper_a', 'upper_b', 'upper_c', 'upper_d', 'upper_e',
          'upper_f', 'upper_g', 'upper_h', 'upper_i', 'upper_j'],
@@ -21,10 +20,10 @@ layout = [
          'upper_p', 'upper_q', 'upper_r', 'upper_s', 'upper_t'],
         ['upper_u', 'upper_v', 'upper_w', 'upper_x', 'upper_y',
          'upper_z', 'symbol_30', 'symbol_32', 'symbol_05', 'backspace'],
-        ['k_prev', 'k_next', layout_switch_keys[1], layout_switch_keys[2], 'space',
+        ['', '', 'lower', 'symbols', 'space',
          'symbol_22', 'symbol_07', 'symbol_08', 'symbol_06', 'enter'],
     ],
-    [
+    'lower': [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
         ['lower_a', 'lower_b', 'lower_c', 'lower_d', 'lower_e',
          'lower_f', 'lower_g', 'lower_h', 'lower_i', 'lower_j'],
@@ -32,10 +31,10 @@ layout = [
          'lower_p', 'lower_q', 'lower_r', 'lower_s', 'lower_t'],
         ['lower_u', 'lower_v', 'lower_w', 'lower_x', 'lower_y',
          'lower_z', 'symbol_01', 'symbol_02', 'symbol_13', 'backspace'],
-        ['k_prev', 'k_next', layout_switch_keys[0], layout_switch_keys[2], 'space',
+        ['', '', 'upper', 'symbols', 'space',
          'symbol_11', 'symbol_04', 'symbol_03', 'symbol_12', 'enter'],
     ],
-    [
+    'symbols': [
         ['', 'symbol_07', 'symbol_08', 'symbol_33', 'symbol_34',
          'symbol_17', 'symbol_18', 'symbol_11', 'symbol_31', ''],
         ['', 'symbol_24', 'symbol_26', 'symbol_35', 'symbol_36',
@@ -44,7 +43,7 @@ layout = [
          'symbol_21', 'symbol_10', 'symbol_05', 'symbol_06', ''],
         ['symbol_15', 'symbol_30', 'symbol_32', 'symbol_16', 'symbol_37',
          'symbol_14', 'symbol_28', 'symbol_01', 'symbol_02', 'backspace'],
-        ['k_prev', 'k_next', layout_switch_keys[0], layout_switch_keys[1], 'space',
+        ['', '', 'upper', 'lower', 'space',
          'symbol_09', 'symbol_25', 'symbol_04', 'symbol_03', 'enter'],
     ]
-]
+}
