@@ -61,9 +61,9 @@ class Key(Sprite):
             image_buffer = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
             for i, subname in enumerate(new_name):
                 subimage = Image.open(self.get_path(subname))
-                subimage = subimage.resize((size[0] // grid_width, size[1] // grid_width))
+                subimage = subimage.resize((subimage.width // grid_width, size[1] // grid_width))
                 image_buffer.paste(subimage, (
-                    round(subimage.width * (i % grid_width)),
+                    round(subimage.height * (i % grid_width) + (subimage.height - subimage.width) / 2),
                     round(subimage.height * (i // grid_width + (grid_width - grid_height) / 2))
                 ))
             data_buffer = BytesIO()
@@ -76,7 +76,7 @@ class Key(Sprite):
             if size is None:
                 size = self.width, self.height
             elif type(size) in (int, float):
-                size = size, size
+                size = (size,)
         self.resize(*size)
 
     def get_path(self, name: str = None, folder: str = None) -> str:
@@ -99,11 +99,15 @@ class Key(Sprite):
             new_name = '|'.join(new_name)
         self.name = new_name
 
-    def resize(self, width: Union[int, float], height: Union[None, int, float] = None) -> None:
-        if height is None:
-            height = width
-        self.scale_x = width * self.scale_x / self.width
-        self.scale_y = height * self.scale_y / self.height
+    def resize(self, height: Union[int, float], width: Union[None, int, float] = None) -> None:
+        if width is None:
+            self.scale_x = 1
+            self.scale_y = 1
+            self.scale = height * self.scale / self.height
+        else:
+            self.scale = 1
+            self.scale_x = width * self.scale_x / self.width
+            self.scale_y = height * self.scale_y / self.height
 
 
 class KeyboardManager(MultiplexLayer):
@@ -224,11 +228,11 @@ class Keyboard(ColorLayer):
         self.screen = Key('cell', color=self.screen_color, position=(
             (self.window_width / 2),
             (self.board_height + self.screen_height / 2) * (self.key_size + self.key_spacing) + self.border_width))
-        self.screen.resize((self.window_width - self.border_width * 2),
-                           (self.key_size + self.key_spacing) * self.screen_height)
+        self.screen.resize((self.key_size + self.key_spacing) * self.screen_height,
+                           (self.window_width - self.border_width * 2))
         self.highlight = Key('cell', size=self.key_size, color=self.highlight_color, opacity=0)
         self.selection = Key('cell', size=self.key_size * self.key_press_scale, color=self.key_press_color, opacity=0)
-        self.cursor = Key('cell', size=self.key_size, color=self.cursor_color, opacity=self.cursor_opacity,
+        self.cursor = Key('cursor', size=self.key_size, color=self.cursor_color, opacity=self.cursor_opacity,
                           position=(self.border_width, self.window_height - self.border_width),
                           anchor=(0, self.key_size / 2))
         self.keys = BatchNode()
@@ -386,7 +390,8 @@ class Keyboard(ColorLayer):
         image_buffer = BytesIO()
         key_image.save('temp.png', file=image_buffer)
         image_buffer.seek(0)
-        key_image = Image.open(image_buffer).resize((self.key_size, self.key_size))
+        key_image = Image.open(image_buffer)
+        key_image = key_image.resize((round(key_image.width * self.key_size / key_image.height), self.key_size))
         if self.image_buffer is None:
             self.image_buffer = key_image
             if pressed_key.name != self.enter_key:
@@ -394,7 +399,7 @@ class Keyboard(ColorLayer):
         else:
             new_buffer = Image.new(
                 mode='RGBA',
-                size=(max(self.image_buffer.width, self.next_key_position[0] + self.key_size),
+                size=(max(self.image_buffer.width, self.next_key_position[0] + key_image.width),
                       max(self.image_buffer.height, self.next_key_position[1] + self.key_size)),
                 color=(0, 0, 0, 0)
             )
@@ -402,7 +407,7 @@ class Keyboard(ColorLayer):
             new_buffer.paste(key_image, self.next_key_position.copy())
             self.image_buffer = new_buffer
             if pressed_key.name != self.enter_key:
-                self.next_key_position[0] += self.key_size
+                self.next_key_position[0] += key_image.width
         self.update_image()
 
     def update_image(self):
@@ -411,7 +416,7 @@ class Keyboard(ColorLayer):
                 self.remove(self.screen_image)
             self.screen_image = None
             self.cursor.position = (self.border_width, self.window_height - self.border_width)
-            self.cursor.scale = 1
+            self.cursor.resize(self.key_size)
             pyperclip.copy('')
             return
         data_buffer = BytesIO()
@@ -424,14 +429,14 @@ class Keyboard(ColorLayer):
                                    position=(self.border_width,
                                              self.window_height - self.border_width - self.key_spacing),
                                    anchor=(0, screen_image.height))
-        self.screen_image.scale = min(self.screen.width / (self.screen_image.width + self.key_size),
+        self.screen_image.scale = min(self.screen.width / (self.screen_image.width + self.cursor.width),
                                       self.screen.height / self.screen_image.height,
                                       1)
         self.add(self.screen_image, z=3)
         self.cursor.position = (self.border_width + self.next_key_position[0] * self.screen_image.scale,
                                 self.window_height - self.border_width
                                 - self.next_key_position[1] * self.screen_image.scale)
-        self.cursor.scale = self.screen_image.scale
+        self.cursor.resize(self.key_size * self.screen_image.scale)
         save_path = 'saved.png'
         self.image_buffer.save(save_path)  # in case my clipboard shenanigans don't work just use the file ig
         save_path = os.path.abspath(save_path).encode('utf-16-le') + b'\0'
