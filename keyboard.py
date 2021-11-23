@@ -14,8 +14,9 @@ from PIL import Image
 from PIL.ImageColor import getrgb
 from cocos import scene
 from cocos.batch import BatchNode
+from cocos.cocosnode import CocosNode
 from cocos.director import director
-from cocos.layer import ColorLayer, MultiplexLayer
+from cocos.layer import ColorLayer
 from cocos.sprite import Sprite
 from pyglet import image
 from pyglet.window import key, mouse
@@ -108,8 +109,14 @@ class Key(Sprite):
             self.scale_y = height * self.scale_y / self.height
 
 
-class KeyboardManager(MultiplexLayer):
+class KeyboardManager(CocosNode):
     def __init__(self):
+        if hasattr(self, 'keyboards'):
+            director.window.set_size(0, 0)
+            self.remove(self.keyboards[self.keyboard_index])
+        else:
+            director.init(width=0, height=0, autoscale=False)
+            super().__init__()
         self.screen_image = None
         self.image_buffer = None
         self.image_history = []
@@ -125,21 +132,23 @@ class KeyboardManager(MultiplexLayer):
         self.load_value('key_spacing', 4)
         self.load_value('border_width', 16)
         self.load_value('app_color', (34, 34, 34))
-        self.load_value('image_color', (0, 0, 0, 0))
+        self.load_value('image_color', (34, 34, 34, 0))
         self.load_value('key_color', (51, 51, 51))
         self.load_value('screen_color', (51, 51, 51))
         self.load_value('highlight_color', (255, 255, 255, 51))
         self.load_value('pressed_key_color', (102, 102, 102))
         self.load_value('pressed_key_scale', 1.25)
         self.load_value('cursor_color', (255, 255, 255, 51))
-        layers = [Keyboard(name, self) for name in load_order]
-        director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
-        super().__init__(*layers)
-        self.layer_dict = {layer.name: (i, layer) for i, layer in enumerate(self.layers)}
-        self.layer_dict[None] = (-1, None)
+        self.keyboards = [Keyboard(name, self) for name in load_order]
+        self.keyboard_index = 0
+        self.add(self.keyboards[self.keyboard_index])
+        self.keyboard_dict = {keyboard.name: (i, keyboard) for i, keyboard in enumerate(self.keyboards)}
+        self.keyboard_dict[None] = (-1, None)
         self.load_preview_keys()
-        for layer in self.layers:
-            layer.post_init()
+        for keyboard in self.keyboards:
+            keyboard.update_layout()
+        director.window.set_size(self.keyboards[self.keyboard_index].window_width,
+                                 self.keyboards[self.keyboard_index].window_height)
 
     def load_value(self, k: str, default: Any) -> None:
         value = self.config.get('Keyboard Settings', k, fallback=default)
@@ -155,33 +164,45 @@ class KeyboardManager(MultiplexLayer):
 
     def load_preview_keys(self) -> None:
         self.preview_keys = dict()
-        for layer in self.layers:
-            default_preview = layer.preview_keys.get('default', None)
-            for k in layer.preview_keys:
+        for keyboard in self.keyboards:
+            default_preview = keyboard.preview_keys.get('default', None)
+            for k in keyboard.preview_keys:
                 if k != 'default':
-                    self.preview_keys[f'{layer.name}/{k}'] = layer.preview_keys[k]
-            for k in layer.layout:
-                if f'{layer.name}/{k}' not in self.preview_keys:
-                    self.preview_keys[f'{layer.name}/{k}'] = default_preview
-            if f'{layer.name}' not in self.preview_keys:
-                self.preview_keys[f'{layer.name}'] = default_preview
+                    self.preview_keys[f'{keyboard.name}/{k}'] = keyboard.preview_keys[k]
+            for k in keyboard.layout:
+                if f'{keyboard.name}/{k}' not in self.preview_keys:
+                    self.preview_keys[f'{keyboard.name}/{k}'] = default_preview
+            if f'{keyboard.name}' not in self.preview_keys:
+                self.preview_keys[f'{keyboard.name}'] = default_preview
 
-    def get_layer(self, name: str) -> Optional[int]:
-        return self.layer_dict.get(name, self.layer_dict[None])
+    def get_keyboard(self, name: str) -> Optional[int]:
+        return self.keyboard_dict.get(name, self.keyboard_dict[None])
 
     def run(self):
         director.run(scene.Scene(self))
 
-    def switch_to(self, layer_number: int):
+    def clear_edits(self):
+        for keyboard in self.keyboards:
+            edit_path = f'keyboards/{keyboard.name}_edit.py'
+            if os.path.isfile(edit_path):
+                os.remove(edit_path)
+
+    def switch_to(self, index: int):
         if self.screen_image is not None \
-                and self.screen_image.parent == self.layers[self.enabled_layer] \
-                and self.enabled_layer != layer_number:
-            self.layers[self.enabled_layer].remove(self.screen_image)
-        self.layers[layer_number].update_highlight(*self.layers[self.enabled_layer].highlight.position)
-        super().switch_to(layer_number)
-        self.layers[layer_number].update_layout()
-        self.layers[layer_number].update_image()
-        director.window.set_size(self.layers[layer_number].window_width, self.layers[layer_number].window_height)
+                and self.screen_image.parent == self.keyboards[self.keyboard_index] \
+                and self.keyboard_index != index:
+            self.keyboards[self.keyboard_index].remove(self.screen_image)
+
+        old_index = self.keyboard_index
+        self.remove(self.keyboards[self.keyboard_index])
+        self.keyboard_index = index
+        self.add(self.keyboards[self.keyboard_index])
+
+        self.keyboards[self.keyboard_index].update_layout()
+        self.keyboards[self.keyboard_index].update_image()
+        self.keyboards[self.keyboard_index].update_highlight(*self.keyboards[old_index].highlight.position)
+        director.window.set_size(self.keyboards[self.keyboard_index].window_width,
+                                 self.keyboards[self.keyboard_index].window_height)
 
 
 class Keyboard(ColorLayer):
@@ -205,7 +226,7 @@ class Keyboard(ColorLayer):
 
         layout = import_module(f'keyboards.{name}')
         layout_edit = import_module(f'keyboards.{name}_edit') \
-            if find_spec(f'keyboards.{name}_edit') else layout
+            if find_spec(f'keyboards.{name}_edit') and os.path.isfile(f'keyboards/{name}_edit.py') else layout
         copyattr(self, layout, 'board_height', 0)
         copyattr(self, layout, 'board_width', 0)
         copyattr(self, layout, 'screen_height', 3)
@@ -219,8 +240,6 @@ class Keyboard(ColorLayer):
         self.window_width = self.board_width * (self.key_size + self.key_spacing) + self.border_width * 2
         self.window_height = (self.board_height + self.screen_height) * (self.key_size + self.key_spacing) \
             + self.border_width * 2
-
-    def post_init(self):
         super().__init__(*self.app_color, self.window_width, self.window_height)
         self.selected_key = None
         self.board_sprites = list()
@@ -248,7 +267,6 @@ class Keyboard(ColorLayer):
         self.board.add(self.screen)
         self.overlay.add(self.pressed_key)
         self.overlay.add(self.cursor)
-
         for row in range(self.board_height):
             self.board_sprites = [[Key('cell', size=self.key_size) for _ in range(self.board_width)]
                                   for _ in range(self.board_height)]
@@ -262,7 +280,6 @@ class Keyboard(ColorLayer):
             self.board.add(self.board_sprites[row][col])
 
         self.sublayout = self.default_layout
-        self.update_layout()
 
     def update_layout(self):
         for row, col in product(range(self.board_height), range(self.board_width)):
@@ -273,8 +290,8 @@ class Keyboard(ColorLayer):
             layout_name = path_name.split('/')[0]
             for name in old_name, path_name, layout_name:
                 if name in self.manager.preview_keys:
-                    _, layer = self.manager.get_layer(layout_name)
-                    asset_folder = layer.asset_folder if layer is not None else self.asset_folder
+                    _, keyboard = self.manager.get_keyboard(layout_name)
+                    asset_folder = keyboard.asset_folder if keyboard is not None else self.asset_folder
                     new_name = self.manager.preview_keys[name]
                     new_sprite = Key(new_name, asset_folder)
                     new_sprite.rename(old_name)
@@ -532,9 +549,9 @@ class Keyboard(ColorLayer):
                 for name in key_name, path_name, layout_name:
                     if name in self.manager.preview_keys:
                         name, sublayout = layout_name, (layout_path[1] if len(layout_path) > 1 else '')
-                        index, layer = self.manager.get_layer(name)
-                        if sublayout in layer.layout:
-                            layer.sublayout = sublayout
+                        index, keyboard = self.manager.get_keyboard(name)
+                        if sublayout in keyboard.layout:
+                            keyboard.sublayout = sublayout
                         self.manager.switch_to(index)
                         return
                 if key_name in self.preview_keys:
@@ -581,11 +598,10 @@ class Keyboard(ColorLayer):
 
     def on_key_press(self, symbol, modifiers) -> None:
         if symbol == key.R:
+            if modifiers & key.MOD_SHIFT:
+                self.manager.clear_edits()
             if modifiers & key.MOD_ACCEL:  # CMD on OSX, CTRL otherwise
-                pass
-
-    def run(self):
-        director.run(scene.Scene(self))
+                self.manager.__init__()
 
 
 if __name__ == '__main__':
