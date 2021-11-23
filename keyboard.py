@@ -24,8 +24,6 @@ import pyperclip
 
 sys.path.append(os.path.abspath(os.getcwd()))
 
-color = tuple[int, int, int]
-
 
 def box(var):
     return (*var,) if isinstance(var, (list, tuple)) else (var,)
@@ -126,15 +124,14 @@ class KeyboardManager(MultiplexLayer):
         self.load_value('key_size', 64)
         self.load_value('key_spacing', 4)
         self.load_value('border_width', 16)
-        self.load_value('background_color', (204, 204, 204))
-        self.load_value('key_color', (220, 220, 220))
-        self.load_value('screen_color', (220, 220, 220))
-        self.load_value('highlight_color', (255, 255, 255))
-        self.load_value('highlight_opacity', 50)
-        self.load_value('key_press_color', self.key_color)
-        self.load_value('key_press_scale', 1.25)
-        self.load_value('cursor_color', self.highlight_color)
-        self.load_value('cursor_opacity', self.highlight_opacity)
+        self.load_value('app_color', (34, 34, 34))
+        self.load_value('image_color', (0, 0, 0, 0))
+        self.load_value('key_color', (51, 51, 51))
+        self.load_value('screen_color', (51, 51, 51))
+        self.load_value('highlight_color', (255, 255, 255, 51))
+        self.load_value('pressed_key_color', (102, 102, 102))
+        self.load_value('pressed_key_scale', 1.25)
+        self.load_value('cursor_color', (255, 255, 255, 51))
         layers = [Keyboard(name, self) for name in load_order]
         director.init(width=layers[0].window_width, height=layers[0].window_height, autoscale=False)
         super().__init__(*layers)
@@ -146,8 +143,13 @@ class KeyboardManager(MultiplexLayer):
 
     def load_value(self, k: str, default: Any) -> None:
         value = self.config.get('Keyboard Settings', k, fallback=default)
-        if type(default) == tuple and len(default) == 3 and default != value:  # we just kinda *assume* this is a color
-            setattr(self, k, getrgb(value)[:3])
+        if type(default) == tuple and len(default) in (3, 4):
+            if value == default:
+                color_tuple = default
+            else:
+                color_tuple = getrgb(value)  # we just kinda *assume* this is a color
+            color_tuple = (*color_tuple[:3], (color_tuple[3] if len(color_tuple) == 4 else 255))
+            setattr(self, k, color_tuple)
         else:
             setattr(self, k, type(default)(value))
 
@@ -192,15 +194,14 @@ class Keyboard(ColorLayer):
         copyattr(self, self.manager, 'key_size')
         copyattr(self, self.manager, 'key_spacing')
         copyattr(self, self.manager, 'border_width')
-        copyattr(self, self.manager, 'background_color')
+        copyattr(self, self.manager, 'app_color')
+        copyattr(self, self.manager, 'image_color')
         copyattr(self, self.manager, 'key_color')
         copyattr(self, self.manager, 'screen_color')
         copyattr(self, self.manager, 'highlight_color')
-        copyattr(self, self.manager, 'highlight_opacity')
-        copyattr(self, self.manager, 'key_press_color')
-        copyattr(self, self.manager, 'key_press_scale')
+        copyattr(self, self.manager, 'pressed_key_color')
+        copyattr(self, self.manager, 'pressed_key_scale')
         copyattr(self, self.manager, 'cursor_color')
-        copyattr(self, self.manager, 'cursor_opacity')
 
         layout = import_module(f'keyboards.{name}')
         layout_edit = import_module(f'keyboards.{name}_edit') \
@@ -220,19 +221,20 @@ class Keyboard(ColorLayer):
             + self.border_width * 2
 
     def post_init(self):
-        super().__init__(*self.background_color, 1000, self.window_width, self.window_height)
+        super().__init__(*self.app_color, self.window_width, self.window_height)
         self.selected_key = None
         self.board_sprites = list()
         self.key_sprites = list()
         self.board = BatchNode()
-        self.screen = Key('cell', color=self.screen_color, position=(
+        self.screen = Key('cell', color=self.screen_color[:3], opacity=self.screen_color[3], position=(
             (self.window_width / 2),
             (self.board_height + self.screen_height / 2) * (self.key_size + self.key_spacing) + self.border_width))
         self.screen.resize((self.key_size + self.key_spacing) * self.screen_height,
                            (self.window_width - self.border_width * 2))
-        self.highlight = Key('cell', size=self.key_size, color=self.highlight_color, opacity=0)
-        self.selection = Key('cell', size=self.key_size * self.key_press_scale, color=self.key_press_color, opacity=0)
-        self.cursor = Key('cursor', size=self.key_size, color=self.cursor_color, opacity=self.cursor_opacity,
+        self.highlight = Key('cell', size=self.key_size, color=self.highlight_color[:3], opacity=0)
+        self.pressed_key = Key('cell', size=self.key_size * self.pressed_key_scale,
+                               color=self.pressed_key_color[:3], opacity=0)
+        self.cursor = Key('cursor', size=self.key_size, color=self.cursor_color[:3], opacity=self.cursor_color[3],
                           position=(self.border_width, self.window_height - self.border_width),
                           anchor=(0, self.key_size / 2))
         self.keys = BatchNode()
@@ -244,7 +246,7 @@ class Keyboard(ColorLayer):
         self.add(self.overlay, z=4)
         self.add(self.active_key, z=5)
         self.board.add(self.screen)
-        self.overlay.add(self.selection)
+        self.overlay.add(self.pressed_key)
         self.overlay.add(self.cursor)
 
         for row in range(self.board_height):
@@ -255,7 +257,8 @@ class Keyboard(ColorLayer):
         for row, col in product(range(self.board_height), range(self.board_width)):
 
             self.board_sprites[row][col].position = self.get_position((row, col))
-            self.board_sprites[row][col].color = self.get_cell_color((row, col))
+            self.board_sprites[row][col].color = self.key_color[:3]
+            self.board_sprites[row][col].opacity = self.key_color[3]
             self.board.add(self.board_sprites[row][col])
 
         self.sublayout = self.default_layout
@@ -284,7 +287,7 @@ class Keyboard(ColorLayer):
                     new_sprite = Key(old_name, self.asset_folder)
             new_sprite.position = self.get_position((row, col))
             new_sprite.resize(self.key_size)
-            self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else 255
+            self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else self.key_color[3]
             self.key_sprites[row][col] = new_sprite
             self.keys.add(self.key_sprites[row][col])
 
@@ -356,17 +359,17 @@ class Keyboard(ColorLayer):
 
         # set selection properties for the selected key
         self.selected_key = pos
-        self.selection.opacity = 255
-        self.selection.position = self.get_position(pos)
+        self.pressed_key.opacity = self.pressed_key_color[3]
+        self.pressed_key.position = self.get_position(pos)
 
         # move the key to active key node (to be displayed on top of everything else)
         key_sprite = self.get_key(self.selected_key)
         self.keys.remove(key_sprite)
         self.active_key.add(key_sprite)
-        key_sprite.resize(self.key_size * self.key_press_scale)
+        key_sprite.resize(self.key_size * self.pressed_key_scale)
 
     def deselect_key(self) -> None:
-        self.selection.opacity = 0
+        self.pressed_key.opacity = 0
 
         if self.nothing_selected():
             return
@@ -419,9 +422,11 @@ class Keyboard(ColorLayer):
             self.cursor.resize(self.key_size)
             pyperclip.copy('')
             return
+
         data_buffer = BytesIO()
         self.image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
+
         screen_image = image.load('temp.png', file=data_buffer)
         if self.screen_image is not None and self.screen_image.parent == self:
             self.remove(self.screen_image)
@@ -437,15 +442,34 @@ class Keyboard(ColorLayer):
                                 self.window_height - self.border_width
                                 - self.next_key_position[1] * self.screen_image.scale)
         self.cursor.resize(self.key_size * self.screen_image.scale)
-        save_path = 'saved.png'
-        self.image_buffer.save(save_path)  # in case my clipboard shenanigans don't work just use the file ig
-        save_path = os.path.abspath(save_path).encode('utf-16-le') + b'\0'
+
+        save_image = Image.new(
+            mode='RGBA',
+            size=(self.image_buffer.width, self.image_buffer.height),
+            color=self.image_color  # for all the folks out there who can't use transparency for some weird techy reason
+        )
+        save_image.alpha_composite(self.image_buffer)
+        data_buffer = BytesIO()
+        save_image.save(data_buffer, format='png')
         data_buffer.seek(0)
+
+        background_path = 'regular.png'
+        save_image.save(background_path)   # in case my clipboard shenanigans don't work just use the file itself ig
+        background_path = os.path.abspath(background_path).encode('utf-16-le') + b'\0'
+
         clp.OpenClipboard()
-        clp.EmptyClipboard()
-        clp.SetClipboardData(clp.RegisterClipboardFormat('FileNameW'), save_path)
-        clp.SetClipboardData(clp.RegisterClipboardFormat('image/png'), data_buffer.getvalue())
+        clp.EmptyClipboard()  # You may have seen this on https://stackoverflow.com/q/66845295/17391024. You're welcome.
+        clp.SetClipboardData(clp.RegisterClipboardFormat('FileNameW'), background_path)         # works for Discord
+        clp.SetClipboardData(clp.RegisterClipboardFormat('image/png'), data_buffer.getvalue())  # works for PDN & TG
         clp.CloseClipboard()
+
+        opaque_image = save_image.copy()
+        opaque_image.mode = 'RGB'
+        opaque_path = 'opaque.png'
+        opaque_image.save(opaque_path)   # use this file if you're having transparency issues
+
+        transparent_path = 'transparent.png'
+        self.image_buffer.save(transparent_path)  # or this one if you want to edit in a background or something
 
     def extend_layout(self, layout: dict):
         if self.board_height == 0:
@@ -476,7 +500,7 @@ class Keyboard(ColorLayer):
         if self.not_a_key(pos):
             self.highlight.opacity = 0
         else:
-            self.highlight.opacity = self.highlight_opacity
+            self.highlight.opacity = self.highlight_color[3]
             self.highlight.position = self.get_position(pos)
 
     def on_mouse_press(self, x, y, buttons, _modifiers) -> None:
@@ -544,7 +568,7 @@ class Keyboard(ColorLayer):
             self.key_sprites[pos[0]][pos[1]] = key_sprite
             self.key_sprites[selected[0]][selected[1]] = swapped_key
             if swapped_key.is_empty():
-                self.board_sprites[pos[0]][pos[1]].opacity = 255
+                self.board_sprites[pos[0]][pos[1]].opacity = self.key_color[3]
                 self.board_sprites[selected[0]][selected[1]].opacity = 0
             swapped_key = self.layout[self.sublayout][pos[0]][pos[1]]
             self.layout[self.sublayout][pos[0]][pos[1]] = self.layout[self.sublayout][selected[0]][selected[1]]
@@ -562,9 +586,6 @@ class Keyboard(ColorLayer):
 
     def run(self):
         director.run(scene.Scene(self))
-
-    def get_cell_color(self, _):
-        return self.key_color
 
 
 if __name__ == '__main__':
