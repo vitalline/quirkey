@@ -2,4 +2,6 @@
 /release/
 /venv/
 /util/
-/saved.png
+/opaque.png
+/regular.png
+/transparent.png
