@@ -16,7 +16,7 @@ preview_keys = {
     'tags': 'ToneTags',
     'default': 'Words',
 }
-layout = {
+layouts = {
     'words1': [
         ['animal', 'anyone', 'adult', 'brother', 'cat', 'channel', 'child', 'clothes', 'color', 'dad', 'day', 'dog', 'emote'],
         ['everyone', 'everything', 'family', 'food', 'mom', 'music', 'name', 'night', 'parent', 'pic', 'practice', 'sense', 'server'],

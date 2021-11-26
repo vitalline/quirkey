@@ -11,7 +11,7 @@ preview_keys = {
     'symbols': [['symbol_01', 'symbol_02'], ['symbol_03', 'symbol_04']],
     'default': [['upper_h', 'upper_s']]
 }
-layout = {
+layouts = {
     'upper': [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
         ['upper_a', 'upper_b', 'upper_c', 'upper_d', 'upper_e',
