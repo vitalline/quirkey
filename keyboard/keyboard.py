@@ -27,21 +27,20 @@ class Keyboard(ColorLayer):
         # super boring initialization stuff
         self.manager = manager
         self.is_event_handler = True
-
-        layout = import_module(f'keyboards.{name}')
-        layout_edit = import_module(f'keyboards.{name}_edit') \
-            if find_spec(f'keyboards.{name}_edit') and isfile(f'keyboards/{name}_edit.py') else layout
+        self.name = name
+        layout = import_module(f'keyboards.{self.name}')
+        layout_edit = import_module(f'keyboards.{self.name}_edit') \
+            if find_spec(f'keyboards.{self.name}_edit') and isfile(f'keyboards/{self.name}_edit.py') else layout
         self.board_height = getattr(layout, 'board_height', 0)
         self.board_width = getattr(layout, 'board_width', 0)
         self.screen_height = getattr(layout, 'screen_height', 3)
         self.backspace_key = getattr(layout, 'backspace_key', 'backspace')
         self.enter_key = getattr(layout, 'enter_key', 'enter')
         self.preview_keys = getattr(layout, 'preview_keys', dict())
-        self.asset_folder = getattr(layout, 'asset_folder', name)
-        self.name = name
+        self.asset_folder = getattr(layout, 'asset_folder', self.name)
         self.layouts = self.extend_layout(layout_edit.layouts if hasattr(layout_edit, 'layouts') else {'': [[]]})
         self.default_layout = getattr(layout, 'default_layout', sorted(self.layouts.keys())[0])
-        self.postprocess = getattr(layout, 'postprocess', lambda image: image.copy())
+        self.postprocess = getattr(layout, 'postprocess', self.manager.postprocess)
         self.window_width = self.board_width \
             * (self.manager.key_size + self.manager.key_spacing) \
             + self.manager.border_width * 2
@@ -246,6 +245,8 @@ class Keyboard(ColorLayer):
             pyperclip.copy('')
             return
 
+        self.manager.image_buffer.format = 'PNG'
+
         data_buffer = BytesIO()
         self.manager.image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
@@ -292,7 +293,7 @@ class Keyboard(ColorLayer):
         opaque_image.save(path)   # or use this file if you're having transparency issues
 
         path = 'transparent.png'
-        self.manager.image_buffer.save(path)  # or this one if you want to edit in a background or something
+        post_processed_image.save(path)  # or this one if you want to edit in a background or something
 
         copy_path = abspath(f'{self.manager.output_mode}.png').encode('utf-16-le') + b'\0'
         copy_file = open(f'{self.manager.output_mode}.png', 'rb')

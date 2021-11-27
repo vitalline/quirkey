@@ -1,6 +1,7 @@
 import configparser
 import os
 from glob import iglob
+from importlib import import_module
 from typing import Optional, TypeVar
 
 from PIL.ImageColor import getrgb
@@ -41,6 +42,10 @@ class KeyboardManager(CocosNode):
         self.pressed_key_color = self.load_value('pressed_key_color', (102, 102, 102))
         self.pressed_key_scale = self.load_value('pressed_key_scale', 1.25)
         self.cursor_color = self.load_value('cursor_color', (255, 255, 255, 51))
+        postprocess = self.load_value('postprocess', '')
+        if postprocess:
+            postprocess = import_module(f'effects.{postprocess}')
+        self.postprocess = getattr(postprocess, 'postprocess', lambda x: x)
         self.output_mode = 'regular'
         self.keyboards = [Keyboard(name, self) for name in load_order]
         self.keyboard_index = 0

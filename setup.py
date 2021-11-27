@@ -32,7 +32,7 @@ def zip_write(zip_handle, zip_path, include, exclude=()):
                         path = None
                         break
                 if path is not None:
-                    zip_handle.write(path, relpath(path, join(zip_path, directory)))
+                    zip_handle.write(path, join(zip_path, relpath(root, directory), file))
 
 
 setup(
@@ -40,15 +40,14 @@ setup(
     version='0.1.0',
     options={
         'build_exe': {
-            'includes': ['win32com'],
+            'includes': ['glitch_this', 'win32com'],
             'include_files': gen_data_files(
-                ['keyboards', 'quirks'],
-                ['keyboards/__pycache__', 'quirks/__pycache__'],
-            ) + ['config.ini'],
+                ['effects', 'keyboards'],
+                ['effects/__pycache__', 'keyboards/__pycache__'],
+            ) + ['config.ini', 'config_rb.ini'],
         }
     },
     executables=[
-        Executable('console.py'),
         Executable('keyboard.py', target_name='keyboard_debug'),
         Executable('keyboard.py', base='Win32GUI'),
     ],
@@ -62,8 +61,25 @@ while isfile(filename.format(timestamp, version)):
 filename = filename.format(timestamp, version)
 zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
 zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
-    'build/exe.win-amd64-3.9/quirks',
-    'build/exe.win-amd64-3.9/console.exe',
+    'build/exe.win-amd64-3.9/config_rb.ini',
+    'build/exe.win-amd64-3.9/keyboards/rb.py',
+    'build/exe.win-amd64-3.9/keyboards/assets/rb',
+    'build/exe.win-amd64-3.9/keyboards/hs.py',
+    'build/exe.win-amd64-3.9/keyboards/assets/hs',
     # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
 ])
+zip_file.close()
+filename = filename.replace('keyboard', 'keyboard_rb')
+zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
+zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
+    'build/exe.win-amd64-3.9/config.ini',
+    'build/exe.win-amd64-3.9/config_rb.ini',
+    'build/exe.win-amd64-3.9/keyboards',
+    'build/exe.win-amd64-3.9/effects/glitch.py',
+    # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
+])
+zip_write(zip_file, 'keyboards/assets/rb', ['build/exe.win-amd64-3.9/keyboards/assets/rb'], [])
+zip_write(zip_file, 'keyboards/assets/util', ['build/exe.win-amd64-3.9/keyboards/assets/util'], [])
+zip_file.write('build/exe.win-amd64-3.9/keyboards/rb.py', 'keyboards/rb.py')
+zip_file.write('build/exe.win-amd64-3.9/config_rb.ini', 'config.ini')
 zip_file.close()
