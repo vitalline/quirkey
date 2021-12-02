@@ -75,7 +75,7 @@ zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
     'build/exe.win-amd64-3.9/config.ini',
     'build/exe.win-amd64-3.9/config_rb.ini',
     'build/exe.win-amd64-3.9/keyboards',
-    'build/exe.win-amd64-3.9/effects/glitch.py',
+    'build/exe.win-amd64-3.9/effects',
     # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
 ])
 zip_write(zip_file, 'keyboards/assets/rb', ['build/exe.win-amd64-3.9/keyboards/assets/rb'], [])

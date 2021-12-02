@@ -213,7 +213,7 @@ class Keyboard(ColorLayer):
         key_image.format = 'PNG'
         key_image = self.preprocess(key_image)
         if manager.image_buffer is None:
-            manager.image_buffer = key_image
+            manager.image_buffer = key_image.convert('RGBA')
             if pressed_key.name != self.enter_key:
                 manager.next_key_position = [manager.image_buffer.width, 0]
         else:
@@ -245,7 +245,7 @@ class Keyboard(ColorLayer):
         post_processed_image = self.postprocess(manager.image_buffer)
 
         data_buffer = BytesIO()
-        post_processed_image.save(data_buffer, format='png')
+        (post_processed_image if manager.postprocess_screen else manager.image_buffer).save(data_buffer, format='png')
         data_buffer.seek(0)
 
         screen_image = load('temp.png', file=data_buffer)
@@ -255,7 +255,7 @@ class Keyboard(ColorLayer):
             image=screen_image,
             position=(
                 manager.border_width,
-                self.window_height - manager.border_width - manager.key_spacing
+                self.window_height - manager.border_width
             ),
             anchor=(0, screen_image.height)
         )

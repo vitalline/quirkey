@@ -48,6 +48,7 @@ class KeyboardManager(CocosNode):
             self.preprocess_modules, self.postprocess_modules = dict(), dict()
             self.keyboard_modules, self.keyboard_edit_modules = dict(), dict()
         self.preprocess_keys = self.load_value('preprocess_keys', False)
+        self.postprocess_screen = self.load_value('postprocess_screen', True)
         preprocess_names = self.load_value('preprocess', '').split(',')
         preprocess_names = [name.strip() for name in preprocess_names]
         self.preprocess_modules, self.preprocess = self.load_processing(preprocess_names, self.preprocess_modules)

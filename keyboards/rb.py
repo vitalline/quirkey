@@ -37,43 +37,42 @@ layouts = {
     ],
 }
 
-key_size = 64
-top_left = Image.open(f'keyboards/assets/{asset_folder}/0001.png')
-top_right = Image.open(f'keyboards/assets/{asset_folder}/0002.png')
-bottom_left = Image.open(f'keyboards/assets/{asset_folder}/0003.png')
-bottom_right = Image.open(f'keyboards/assets/{asset_folder}/0004.png')
-horizontal = Image.open(f'keyboards/assets/{asset_folder}/0005.png')
-vertical = Image.open(f'keyboards/assets/{asset_folder}/0006.png')
+top_left = Image.open(f'keyboards/assets/{asset_folder}/0001.png').resize((8, 8))
+top_right = Image.open(f'keyboards/assets/{asset_folder}/0002.png').resize((8, 8))
+bottom_left = Image.open(f'keyboards/assets/{asset_folder}/0003.png').resize((8, 8))
+bottom_right = Image.open(f'keyboards/assets/{asset_folder}/0004.png').resize((8, 8))
+horizontal = Image.open(f'keyboards/assets/{asset_folder}/0005.png').resize((8, 8))
+vertical = Image.open(f'keyboards/assets/{asset_folder}/0006.png').resize((8, 8))
 
 
 def postprocess(image: Image.Image) -> Image.Image:
     x, y = 0, 0
     buffer = Image.new(
         mode='RGBA',
-        size=(image.width + key_size * 2, image.height + key_size * 2),
+        size=(image.width + 16, image.height + 16),
         color=(248, 248, 248)
     )
-    buffer.alpha_composite(image, (key_size, key_size))
+    buffer.alpha_composite(image, (8, 8))
     while y < buffer.height:
         while x < buffer.width:
             if y == 0:
                 if x == 0:
                     buffer.paste(top_left, (x, y))
-                elif x == buffer.width - key_size:
+                elif x == buffer.width - 8:
                     buffer.paste(top_right, (x, y))
                 else:
                     buffer.paste(horizontal, (x, y))
-            elif y == buffer.height - key_size:
+            elif y == buffer.height - 8:
                 if x == 0:
                     buffer.paste(bottom_left, (x, y))
-                elif x == buffer.width - key_size:
+                elif x == buffer.width - 8:
                     buffer.paste(bottom_right, (x, y))
                 else:
                     buffer.paste(horizontal, (x, y))
             else:
-                if x == 0 or x == buffer.width - key_size:
+                if x == 0 or x == buffer.width - 8:
                     buffer.paste(vertical, (x, y))
-            x += key_size
+            x += 8
         x = 0
-        y += key_size
-    return buffer.resize((buffer.width // 8, buffer.height // 8), Image.NEAREST)
+        y += 8
+    return buffer
