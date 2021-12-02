@@ -6,14 +6,14 @@ backspace_key = 'backspace'
 enter_key = 'enter'
 default_layout = 'words1'
 preview_keys = {
-    'words1': 'Words1',
-    'words2': 'Words2',
+    'words1': 'Words 1',
+    'words2': 'Words 2',
     'pos': 'Positive',
     'neg': 'Negative',
     'sys': 'ND_System',
     'other': 'Other',
     'pronouns': 'Pronouns',
-    'tags': 'ToneTags',
+    'tags': 'Tone Tags',
     'default': 'Words',
 }
 layouts = {
@@ -33,14 +33,14 @@ layouts = {
     ],
     'pos': [
         ['blanket', 'comfort', 'dream', 'haha', 'hi', 'hug', 'later', 'luck', 'make', 'okay', 'sleep', 'stuffie', 'thanks'],
-        ['care', 'cool', 'done', 'easy', 'epic', 'excited', 'favorite', 'friend', 'goodluck', 'lmao', 'lol', 'nice', 'nicetomeetyou'],
-        ['ofcourse', 'swag', 'yes', 'yeah', 'yum', '!', '!!!'],
+        ['care', 'cool', 'done', 'easy', 'epic', 'excited', 'favorite', 'friend', 'good luck', 'lmao', 'lol', 'nice', 'nice to meet you'],
+        ['of course', 'swag', 'yes', 'yeah', 'yum', '!', '!!!'],
         ['affection', 'baby', 'BF', 'datemate', 'feeling', 'GF', 'JF', 'love', 'meow', 'owo', 'partner', 'pretty', 'S_O'],
         ['words1', 'words2', 'neg', 'sys', 'other', 'pronouns', 'tags', 'lat', 'sym', 'cyr', 'ru_words/pos', 'enter', 'backspace'],
     ],
     'neg': [
-        ['alone', 'cold', 'doesn\'tmatter', 'forgot', 'hungry', 'lost', 'miss', 'nvm', 'sad', 'sorry', 'spoon', 'tired', '_..._'],
-        ['always', 'annoy', 'attention', 'bring', 'chore', 'holdon', 'hot', 'order', 'never', 'remember', 'rightnow', 'school', 'wash_clean'],
+        ['alone', 'cold', 'doesn\'t matter', 'forgot', 'hungry', 'lost', 'miss', 'nvm', 'sad', 'sorry', 'spoon', 'tired', '_..._'],
+        ['always', 'annoy', 'attention', 'bring', 'chore', 'hold on', 'hot', 'order', 'never', 'remember', 'right now', 'school', 'wash_clean'],
         ['block', 'can\'t', 'delete', 'DNI', 'distress', 'don\'t', 'fight', 'hard', 'hate', 'hurt', 'leave', 'mad', 'no'],
         ['not', 'scared', 'scary', 'stop', 'stressed', 'uncomfy', 'upset', 'wrong', 'yikes', '!!'],
         ['words1', 'words2', 'pos', 'sys', 'other', 'pronouns', 'tags', 'lat', 'sym', 'cyr', 'ru_words/neg', 'enter', 'backspace'],
@@ -48,7 +48,7 @@ layouts = {
     'sys': [
         ['anxiety', 'ADHD', 'ASD', 'depression', 'fidget', 'stim', 'tic', 'trauma', 'trigger'],
         ['body', 'caretaker', 'factive', 'fictive', 'faitive', 'gatekeeper', 'headmate', 'headspace', 'introject', 'host', 'little', 'middle', 'otherkin'],
-        ['persecutor', 'PluralKit', 'proxy', 'source', 'system', 'tulpa', 'tupper', 'Tupperbox'],
+        ['persecutor', 'Plural Kit', 'proxy', 'source', 'system', 'tulpa', 'tupper', 'Tupperbox'],
         ['blurry', 'nonverbal', 'semiverbal', 'regress', 'switch', 'verbalflux'],
         ['words1', 'words2', 'pos', 'neg', 'other', 'pronouns', 'tags', 'lat', 'sym', 'cyr', 'ru_words/sys', 'enter', 'backspace'],
     ],

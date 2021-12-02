@@ -1,1 +1,2 @@
-from .keyboard import Keyboard
+from .manager import manager
+manager.init_keyboards()

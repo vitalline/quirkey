@@ -5,6 +5,8 @@
       <excludeFolder url="file://$MODULE_DIR$/venv" />
       <excludeFolder url="file://$MODULE_DIR$/build" />
       <excludeFolder url="file://$MODULE_DIR$/release" />
+      <excludeFolder url="file://$MODULE_DIR$/util/backup" />
+      <excludeFolder url="file://$MODULE_DIR$/keyboards_qwerty" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (quirkey)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

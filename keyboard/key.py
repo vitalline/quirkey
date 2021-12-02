@@ -1,7 +1,7 @@
 from io import BytesIO
 from math import ceil, sqrt
 from os.path import isfile
-from typing import Union
+from typing import Callable, Union
 
 from PIL import Image
 from cocos.sprite import Sprite
@@ -10,7 +10,8 @@ from pyglet.image import load
 
 class Key(Sprite):
     def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, folder: str = 'util',
-                 size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None, **kwargs):
+                 size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None,
+                 preprocess: Callable[[Image.Image], Image.Image] = lambda x: x, **kwargs) -> None:
         self.empty = False
         if name in (None, []):
             self.empty = True
@@ -31,28 +32,30 @@ class Key(Sprite):
                 size = 64 * grid_width, 64 * grid_height
             elif type(size) in (int, float):
                 size = size, size
-            image_buffer = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
+            self.base_image = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
             for i, name_part in enumerate(new_name):
                 image_part = Image.open(self.get_path(name_part))
                 image_part = image_part.resize((
                     round((image_part.width / image_part.height) * (size[0] / grid_width)),
                     round(size[1] / grid_width)
                 ))
-                image_buffer.paste(image_part, (
+                self.base_image.paste(image_part, (
                     round(image_part.height * (i % grid_width) + (image_part.height - image_part.width) / 2),
                     round(image_part.height * (i // grid_width + (grid_width - grid_height) / 2))
                 ))
-            data_buffer = BytesIO()
-            image_buffer.save(data_buffer, format='png')
-            data_buffer.seek(0)
-            super().__init__(load('temp.png', file=data_buffer), **kwargs)
             self.rename(new_name)
         else:
-            super().__init__(self.get_path(), **kwargs)
+            self.base_image = Image.open(self.get_path())
             if size is None:
-                size = self.width, self.height
+                size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
                 size = (size,)
+        self.base_image.format = 'PNG'
+        image_buffer = preprocess(self.base_image) if not self.empty else self.base_image
+        data_buffer = BytesIO()
+        image_buffer.save(data_buffer, format='png')
+        data_buffer.seek(0)
+        super().__init__(load('temp.png', file=data_buffer), **kwargs)
         self.resize(*size)
 
     def get_path(self, name: str = None, folder: str = None) -> str:
