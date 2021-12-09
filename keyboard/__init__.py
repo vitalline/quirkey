@@ -1,2 +1,2 @@
 from .manager import manager
-manager.init_keyboards()
+manager.init_modules()

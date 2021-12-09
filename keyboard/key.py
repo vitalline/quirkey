@@ -50,6 +50,7 @@ class Key(Sprite):
                 size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
                 size = (size,)
+        self.base_image = self.base_image.convert('RGBA')
         self.base_image.format = 'PNG'
         image_buffer = preprocess(self.base_image) if not self.empty else self.base_image
         data_buffer = BytesIO()
@@ -64,6 +65,8 @@ class Key(Sprite):
         if folder is None:
             folder = self.folder
         path_string = 'keyboards/assets/{}/{}.png'
+        if not isfile(path_string.format(folder, name)):
+            name = name.split(':', 1)[0]
         if not isfile(path_string.format(folder, name)):
             if folder == self.folder and name == self.name:
                 self.empty = True

@@ -2,13 +2,16 @@ import os
 from configparser import ConfigParser, Error
 from glob import iglob
 from importlib import import_module, invalidate_caches, reload
-from typing import Optional, TypeVar, Callable
+from typing import Callable, Optional, TypeVar, TYPE_CHECKING
 
 from PIL import Image
 from PIL.ImageColor import getrgb
 from cocos.cocosnode import CocosNode
 from cocos.director import director
 from cocos.scene import Scene
+
+if TYPE_CHECKING:
+    from keyboard.keyboard import Keyboard
 
 
 class KeyboardManager(CocosNode):
@@ -45,43 +48,50 @@ class KeyboardManager(CocosNode):
         self.pressed_key_scale = self.load_value('pressed_key_scale', 1.25)
         self.cursor_color = self.load_value('cursor_color', (255, 255, 255, 51))
         if not self.is_loaded:
-            self.preprocess_modules, self.postprocess_modules = dict(), dict()
-            self.keyboard_modules, self.keyboard_edit_modules = dict(), dict()
+            self.preprocess_modules, self.postprocess_modules, self.preprocess = dict(), dict(), lambda x: x
+            self.keyboard_modules, self.keyboard_edit_modules, self.postprocess = dict(), dict(), lambda x: x
         self.preprocess_keys = self.load_value('preprocess_keys', False)
         self.postprocess_screen = self.load_value('postprocess_screen', True)
+        self.output_mode = 'regular'
+        self.keyboards = []
+        self.keyboard_index = 0
+        self.keyboard_dict = {}
+        self.current_keyboard = None
+        self.preview_keys = dict()
+
+    def init_modules(self) -> None:
         preprocess_names = self.load_value('preprocess', '').split(',')
         preprocess_names = [name.strip() for name in preprocess_names]
         self.preprocess_modules, self.preprocess = self.load_processing(preprocess_names, self.preprocess_modules)
         postprocess_names = self.load_value('postprocess', '').split(',')
         postprocess_names = [name.strip() for name in postprocess_names]
         self.postprocess_modules, self.postprocess = self.load_processing(postprocess_names, self.postprocess_modules)
-        self.output_mode = 'regular'
-        self.keyboards = []
-        self.keyboard_index = 0
-        self.keyboard_dict = {}
-        self.preview_keys = dict()
-
-    def init_keyboards(self) -> None:
         from .keyboard import Keyboard
         for name in self.load_order:
-            for module_dict in (self.keyboard_modules, self.keyboard_edit_modules):
+            for module_dict, import_string in ((self.keyboard_modules, 'keyboards.{}'),
+                                               (self.keyboard_edit_modules, 'keyboards.{}_edit')):
                 try:
                     if self.is_loaded and name in module_dict:
                         module_dict[name] = reload(module_dict[name])
                     else:
-                        module_dict[name] = import_module(f'keyboards.{name}')
+                        module_dict[name] = import_module(import_string.format(name))
                 except ModuleNotFoundError:
                     pass
             if os.path.isfile(f'keyboards/{name}_edit.py'):
                 if hasattr(self.keyboard_edit_modules[name], 'layouts'):
                     self.keyboard_modules[name].layouts = self.keyboard_edit_modules[name].layouts
+                if hasattr(self.keyboard_edit_modules[name], 'keymap'):
+                    self.keyboard_modules[name].keymap = self.keyboard_edit_modules[name].keymap
         self.keyboards = [Keyboard(name, self.keyboard_modules[name]) for name in self.load_order]
         self.add(self.keyboards[self.keyboard_index])
         self.keyboard_dict = {keyboard.name: (i, keyboard) for i, keyboard in enumerate(self.keyboards)}
         self.keyboard_dict[None] = (-1, None)
         self.load_preview_keys()
         for keyboard in self.keyboards:
+            self.current_keyboard = keyboard
             keyboard.update_layout()
+        self.keyboard_index = 0
+        self.current_keyboard = self.keyboards[self.keyboard_index]
         director.window.set_size(self.keyboards[self.keyboard_index].window_width,
                                  self.keyboards[self.keyboard_index].window_height)
         self.loaded = True
@@ -92,7 +102,7 @@ class KeyboardManager(CocosNode):
 
     def reload(self) -> None:
         self.__init__()
-        self.init_keyboards()
+        self.init_modules()
 
     T = TypeVar('T')
 
@@ -113,7 +123,7 @@ class KeyboardManager(CocosNode):
 
     def load_processing(
             self, processing_list: list[str], processing_modules: dict
-    ) -> tuple[dict, Callable[[Image.Image], Image.Image]]:
+    ) -> tuple[dict, Callable[[Image.Image], Optional[Image.Image]]]:
 
         for name in processing_list:
             try:
@@ -124,10 +134,13 @@ class KeyboardManager(CocosNode):
             except ModuleNotFoundError:
                 pass
 
-        def processing_func(image: Image.Image) -> Image.Image:
+        def processing_func(image: Image.Image) -> Optional[Image.Image]:
             for i in processing_list:
+                if image is None:
+                    return None
+                else:
+                    image.format = 'PNG'
                 image = getattr(processing_modules.get(i, None), 'process', lambda x: x)(image)
-                image.format = 'PNG'
             return image
 
         return processing_modules, processing_func
@@ -144,7 +157,11 @@ class KeyboardManager(CocosNode):
             if f'{keyboard.name}' not in self.preview_keys:
                 self.preview_keys[f'{keyboard.name}'] = default_preview
 
-    def get_keyboard(self, name: str) -> Optional[int]:
+    @property
+    def keyboard(self) -> 'Keyboard':
+        return self.current_keyboard
+
+    def get_keyboard(self, name: str = '') -> Optional[int]:
         return self.keyboard_dict.get(name, self.keyboard_dict[None])
 
     def run(self):
@@ -165,13 +182,13 @@ class KeyboardManager(CocosNode):
         old_index = self.keyboard_index
         self.remove(self.keyboards[self.keyboard_index])
         self.keyboard_index = index
-        self.add(self.keyboards[self.keyboard_index])
+        self.current_keyboard = self.keyboards[self.keyboard_index]
+        self.add(self.current_keyboard)
 
-        self.keyboards[self.keyboard_index].update_layout()
-        self.keyboards[self.keyboard_index].update_image()
-        self.keyboards[self.keyboard_index].update_highlight(*self.keyboards[old_index].highlight.position)
-        director.window.set_size(self.keyboards[self.keyboard_index].window_width,
-                                 self.keyboards[self.keyboard_index].window_height)
+        self.current_keyboard.update_layout()
+        self.current_keyboard.update_image()
+        self.current_keyboard.update_highlight(*self.keyboards[old_index].highlight.position)
+        director.window.set_size(self.current_keyboard.window_width, self.current_keyboard.window_height)
 
 
 manager = KeyboardManager()
