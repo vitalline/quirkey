@@ -471,6 +471,23 @@ class Keyboard(ColorLayer):
             layout_edit.close()
 
     def on_key_press(self, symbol, modifiers) -> None:
+        if symbol == key.R:
+            if modifiers & key.MOD_SHIFT:
+                manager.clear_edits()
+            if modifiers & key.MOD_ACCEL:  # CMD on OSX, CTRL otherwise
+                manager.reload()
+            if modifiers & (key.MOD_SHIFT | key.MOD_ACCEL):
+                return
+        if symbol == key.B:
+            if modifiers & key.MOD_SHIFT and modifiers & key.MOD_ACCEL:
+                manager.output_mode = 'regular'
+            elif modifiers & key.MOD_SHIFT:
+                manager.output_mode = 'opaque'
+            elif modifiers & key.MOD_ACCEL:
+                manager.output_mode = 'transparent'
+            if modifiers & (key.MOD_SHIFT | key.MOD_ACCEL):
+                self.update_image()
+                return
         if self.current_layout in self.mapping:
             if symbol in self.mapping[self.current_layout]:
                 modifier_code = 0
@@ -482,18 +499,3 @@ class Keyboard(ColorLayer):
                     x, y = self.get_screen_position(position)
                     self.on_mouse_press(x, y, mouse.LEFT, modifiers)
                     self.on_mouse_release(x, y, mouse.LEFT, modifiers)
-                    return
-        if symbol == key.R:
-            if modifiers & key.MOD_SHIFT:
-                manager.clear_edits()
-            if modifiers & key.MOD_ACCEL:  # CMD on OSX, CTRL otherwise
-                manager.reload()
-        if symbol == key.B:
-            if modifiers & key.MOD_SHIFT and modifiers & key.MOD_ACCEL:
-                manager.output_mode = 'regular'
-            elif modifiers & key.MOD_SHIFT:
-                manager.output_mode = 'opaque'
-            elif modifiers & key.MOD_ACCEL:
-                manager.output_mode = 'transparent'
-            if modifiers & (key.MOD_SHIFT | key.MOD_ACCEL):
-                self.update_image()
