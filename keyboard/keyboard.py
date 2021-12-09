@@ -475,7 +475,7 @@ class Keyboard(ColorLayer):
             if symbol in self.mapping[self.current_layout]:
                 modifier_code = 0
                 for k in sorted(self.mapping[self.current_layout][symbol].keys()):
-                    if modifiers == k:
+                    if modifiers & k:
                         modifier_code = k
                 position = self.mapping[self.current_layout][symbol].get(modifier_code, None)
                 if not self.not_a_key(position):

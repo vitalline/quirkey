@@ -28,3 +28,19 @@ layouts = {
         ['40', '41', '47', '61', 'upper', 'sym', '32', 'ru_words', 'lat/lower:lang', '45', '46', '44', 'enter'],
     ],
 }
+keymap = {
+    'upper': [
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'grave', 'shift+grave', 'shift+apostrophe'],
+        ['f', 'comma', 'd', 'u', 'l', 't', 'semicolon', 'p', 'b', 'q', 'r', 'shift+s', 'shift+bracketright'],
+        ['k', 'v', 'y', 'j', 'g', 'h', 'c', 'n', 'e', 'a', 'bracketleft', 'shift+equal', 'shift+8'],
+        ['w', 'x', 'i', 'o', 'bracketright', 's', 'm', 'apostrophe', 'period', 'z', 'shift+6,ctrl+shift+semicolon', 'shift+4,ctrl+semicolon', 'backspace'],
+        ['shift+2', 'shift+3', 'shift+5', 'shift+7,ctrl+7', 'capslock', '', 'space', '', '', 'shift+minus', 'shift+comma', 'shift+period', 'enter'],
+    ],
+    'lower': [
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'grave', 'shift+grave', 'shift+apostrophe'],
+        ['f', 'comma', 'd', 'u', 'l', 't', 'semicolon', 'p', 'b', 'q', 'r', 'shift+s', 'shift+bracketright'],
+        ['k', 'v', 'y', 'j', 'g', 'h', 'c', 'n', 'e', 'a', 'bracketleft', 'ctrl+apostrophe,ctrl+2', 'shift+2'],
+        ['w', 'x', 'i', 'o', 'bracketright', 's', 'm', 'apostrophe', 'period', 'z', 'shift+1', 'shift+7', 'backspace'],
+        ['shift+9', 'shift+0', 'shift+backslash', 'equal', 'capslock', '', 'space', '', '', 'minus', 'slash', 'shift+slash', 'enter'],
+    ],
+}

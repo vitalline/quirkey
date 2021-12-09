@@ -30,14 +30,14 @@ layouts = {
 }
 keymap = {
     'upper': [
-        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'bracketleft,shift+9', 'bracketright,shift+0', 'bar,shift+backslash'],
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'bracketleft', 'bracketright', 'bar,shift+backslash'],
         ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'braceleft,shift+bracketleft', 'braceright,shift+bracketright', 'ctrl+backslash'],
         ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'underscore,shift+minus', 'plus,shift+equals', 'backslash'],
         ['u', 'v', 'w', 'x', 'y', 'z', 'ampersand,shift+7', 'at,shift+2', 'hash,shift+3', 'asterisk,shift+8', 'asciicircum,shift+6', 'percent,shift+5', 'backspace'],
         ['', '', '', '', 'capslock', '', 'space', '', '', '', '', '', 'enter'],
     ],
     'lower': [
-        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'bracketleft', 'bracketright', 'colon,shift+semicolon'],
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'parenleft,shift+9', 'parenright,shift+0', 'colon,shift+semicolon'],
         ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'less,shift+comma', 'greater,shift+period', 'semicolon'],
         ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'minus', 'equal', 'slash'],
         ['u', 'v', 'w', 'x', 'y', 'z', 'period', 'comma', 'exclamation,shift+1', 'question,shift+slash', 'apostrophe', 'doublequote,shift+apostrophe', 'backspace'],
