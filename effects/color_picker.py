@@ -4,8 +4,7 @@ from PIL import Image, ImageChops, ImageColor, ImageOps
 
 from keyboard import manager
 
-overlay_color = list('fff')
-current_char = 0
+overlay_color = ['0', '55', '100']
 char_scale = 1.5
 
 
@@ -15,27 +14,28 @@ def process(image: Image.Image) -> Optional[Image.Image]:
         return image
     if keyboard.current_key.name in (keyboard.backspace_key, keyboard.enter_key):
         return image
-    global overlay_color, current_char
+    global overlay_color
     color = overlay_color.copy()
     if keyboard.name == 'color_picker':
-        key_name = keyboard.current_key.name
-        if key_name.isnumeric() and key_name.isascii():
-            key_name = chr(int(key_name))
+        key = keyboard.current_key.name.split(':')
+        if len(key) == 2 and key[0] == 'cell':
+            key_value = key[1]
             if keyboard.current_key_is_pressed:
-                if key_name in 'RGB':
-                    current_char = 'RGB'.index(key_name)
-                elif key_name in '0123456789abcdef':
-                    overlay_color[current_char] = key_name
+                current_part = 'hsv'.find(key_value[0])
+                if current_part == -1:
+                    return image
+                overlay_color[current_part] = key_value[1:]
                 return None
             else:
-                if key_name in 'RGB':
-                    color = [color[i] if 'RGB'.index(key_name) == i else '0' for i in range(len(color))]
-                    if 'RGB'[current_char] != key_name:
-                        image = ImageOps.pad(image, (image.width, round(image.height * char_scale)))
-                elif key_name in '0123456789abcdef':
-                    if color[current_char] != key_name:
-                        image = ImageOps.pad(image, (image.width, round(image.height * char_scale)))
-                    color[current_char] = key_name
-    overlay = Image.new('RGB', (image.width, image.height), ImageColor.getrgb('#' + ''.join(color)))
+                current_part = 'hsv'.find(key_value[0])
+                if current_part == -1:
+                    return image
+                if color[current_part] != key_value[1:]:
+                    image = ImageOps.expand(image, round(image.width * (char_scale - 1)))
+                else:
+                    image = ImageOps.expand(image, round(image.width * (char_scale - 1) / 3))
+                color[current_part] = key_value[1:]
+    h, s, v = tuple(color)
+    overlay = Image.new('RGB', (image.width, image.height), ImageColor.getrgb(f'hsv({h}, {s}%, {v}%)'))
     overlay.putalpha(255)
     return ImageChops.multiply(image, overlay)
