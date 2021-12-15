@@ -4,6 +4,7 @@ from keyboard import manager
 
 board_height = 5
 board_width = 5
+screen_height = 4
 asset_folder = 'letters'
 backspace_key = 'backspace'
 enter_key = 'enter'
