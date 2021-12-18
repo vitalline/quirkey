@@ -37,15 +37,18 @@ layouts = {
     ],
 }
 
-top_left = Image.open(f'keyboards/assets/{asset_folder}/0001.png').resize((8, 8))
-top_right = Image.open(f'keyboards/assets/{asset_folder}/0002.png').resize((8, 8))
-bottom_left = Image.open(f'keyboards/assets/{asset_folder}/0003.png').resize((8, 8))
-bottom_right = Image.open(f'keyboards/assets/{asset_folder}/0004.png').resize((8, 8))
-horizontal = Image.open(f'keyboards/assets/{asset_folder}/0005.png').resize((8, 8))
-vertical = Image.open(f'keyboards/assets/{asset_folder}/0006.png').resize((8, 8))
+space, top_left, top_right, bottom_left, bottom_right, horizontal, vertical = (
+    Image.open(f'keyboards/assets/{asset_folder}/000{i}.png').resize((8, 8), 0).convert('RGBA') for i in range(7)
+)
+
+
+def preprocess(image: Image.Image) -> Image.Image:
+    return image.resize((8, 8), 0)
 
 
 def postprocess(image: Image.Image) -> Image.Image:
+    if image is None:
+        image = space
     x, y = 0, 0
     buffer = Image.new(
         mode='RGBA',

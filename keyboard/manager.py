@@ -35,8 +35,14 @@ class KeyboardManager(CocosNode):
         except Error:
             self.load_order = [name[10:-3] for name in iglob('keyboards/*.py')]
         self.load_order = [name.strip() for name in self.load_order]
-        self.char_size = self.load_value('char_size', 64)
-        self.key_size = self.load_value('key_size', 64)
+        self.key_size = self.load_value('key_size', 0)
+        self.char_size = self.load_value('char_size', 0)
+        if self.key_size == 0 and self.char_size == 0:
+            self.key_size, self.char_size = 64, 64
+        elif self.key_size == 0:
+            self.key_size = self.char_size
+        elif self.char_size == 0:
+            self.char_size = self.key_size
         self.key_spacing = self.load_value('key_spacing', 4)
         self.border_width = self.load_value('border_width', 16)
         self.app_color = self.load_value('app_color', (34, 34, 34))
@@ -94,6 +100,7 @@ class KeyboardManager(CocosNode):
         self.current_keyboard = self.keyboards[self.keyboard_index]
         director.window.set_size(self.keyboards[self.keyboard_index].window_width,
                                  self.keyboards[self.keyboard_index].window_height)
+        self.current_keyboard.update_image()
         self.loaded = True
 
     @property

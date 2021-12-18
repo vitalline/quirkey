@@ -230,7 +230,6 @@ class Keyboard(ColorLayer):
         manager.image_history.append((manager.image_buffer, manager.next_key_position.copy()))
         pressed_key = self.get_key(pos)
         if pressed_key.name == self.enter_key:
-            manager.next_key_position = [0, manager.next_key_position[1] + manager.char_size]
             key_image = Key().base_image
         else:
             key_image = pressed_key.base_image
@@ -240,23 +239,28 @@ class Keyboard(ColorLayer):
         if key_image is None:
             manager.image_buffer, manager.next_key_position = manager.image_history.pop()
         else:
+            if pressed_key.name == self.enter_key:
+                manager.next_key_position = [0, manager.next_key_position[1] + key_image.height]
             if manager.image_buffer is None:
-                manager.image_buffer = key_image.convert('RGBA')
-                if pressed_key.name != self.enter_key:
-                    manager.next_key_position = [manager.image_buffer.width, 0]
+                new_buffer = Image.new(
+                    mode='RGBA',
+                    size=(manager.next_key_position[0] + key_image.width,
+                          manager.next_key_position[1] + key_image.height),
+                    color=(0, 0, 0, 0)
+                )
             else:
                 new_buffer = Image.new(
                     mode='RGBA',
                     size=(max(manager.image_buffer.width, manager.next_key_position[0] + key_image.width),
-                          max(manager.image_buffer.height, manager.next_key_position[1] + manager.char_size)),
+                          max(manager.image_buffer.height, manager.next_key_position[1] + key_image.height)),
                     color=(0, 0, 0, 0)
                 )
                 new_buffer.paste(manager.image_buffer)
-                # noinspection PyTypeChecker
-                new_buffer.paste(key_image, tuple(manager.next_key_position))
-                manager.image_buffer = new_buffer
-                if pressed_key.name != self.enter_key:
-                    manager.next_key_position[0] += key_image.width
+            # noinspection PyTypeChecker
+            new_buffer.paste(key_image, tuple(manager.next_key_position))
+            manager.image_buffer = new_buffer
+            if pressed_key.name != self.enter_key:
+                manager.next_key_position[0] += key_image.width
         self.update_image()
 
     def clear_image(self) -> None:
