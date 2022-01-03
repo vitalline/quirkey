@@ -22,7 +22,7 @@ layouts = {
         ['', '', '', 'en_words', 'lat', 'lat_extra', 'sym', 'cyr', 'ru_words'],
     ],
 }
-
+fixed_layout = True
 
 def postprocess(image: Image.Image) -> Image.Image:
     manager.keyboard.update_layout()

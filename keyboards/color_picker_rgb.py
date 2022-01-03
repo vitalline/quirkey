@@ -21,6 +21,7 @@ layouts = {
         ['en_words', 'lat', 'lat_extra', 'cyr', 'ru_words'],
     ],
 }
+fixed_layout = True
 
 
 def postprocess(image: Image.Image) -> Image.Image:

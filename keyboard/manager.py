@@ -13,15 +13,27 @@ from cocos.scene import Scene
 if TYPE_CHECKING:
     from keyboard.keyboard import Keyboard
 
+EDIT_VARS = ('layouts', 'keymap')
+
 
 class KeyboardManager(CocosNode):
+    """
+    Class that creates and handles the main window and manages the keyboard layers.
+
+    You should not directly instantiate the class, instead you do::
+
+        from keyboard import manager
+
+    to access the only KeyboardManager instance.
+    """
+
     def __init__(self) -> None:
         if self.is_loaded:
             invalidate_caches()
             director.window.set_size(0, 0)
             self.remove(self.keyboards[self.keyboard_index])
         else:
-            director.init(width=0, height=0, autoscale=False)
+            director.init(width=0, height=0, autoscale=False, file_drops=True)
             super().__init__()
             self.loaded = False
         self.screen_image = None
@@ -66,6 +78,9 @@ class KeyboardManager(CocosNode):
         self.preview_keys = dict()
 
     def init_modules(self) -> None:
+        """
+        Initializes or reinitializes the keyboard and effect modules.
+        """
         preprocess_names = self.load_value('preprocess', '').split(',')
         preprocess_names = [name.strip() for name in preprocess_names]
         self.preprocess_modules, self.preprocess = self.load_processing(preprocess_names, self.preprocess_modules)
@@ -84,10 +99,9 @@ class KeyboardManager(CocosNode):
                 except ModuleNotFoundError:
                     pass
             if os.path.isfile(f'keyboards/{name}_edit.py'):
-                if hasattr(self.keyboard_edit_modules[name], 'layouts'):
-                    self.keyboard_modules[name].layouts = self.keyboard_edit_modules[name].layouts
-                if hasattr(self.keyboard_edit_modules[name], 'keymap'):
-                    self.keyboard_modules[name].keymap = self.keyboard_edit_modules[name].keymap
+                for var in EDIT_VARS:
+                    if hasattr(self.keyboard_edit_modules[name], var):
+                        setattr(self.keyboard_modules[name], var, getattr(self.keyboard_edit_modules[name], var))
         self.keyboards = [Keyboard(name, self.keyboard_modules[name]) for name in self.load_order]
         self.add(self.keyboards[self.keyboard_index])
         self.keyboard_dict = {keyboard.name: (i, keyboard) for i, keyboard in enumerate(self.keyboards)}
@@ -105,15 +119,32 @@ class KeyboardManager(CocosNode):
 
     @property
     def is_loaded(self) -> bool:
+        """
+        Check if the window and all its modules are fully initialized.
+
+        :return: True if the application has loaded, False otherwise.
+        """
         return hasattr(self, 'loaded') and self.loaded
 
     def reload(self) -> None:
+        """
+        Reloads the manager and all its modules.
+        """
+        highlight_position = self.keyboards[self.keyboard_index].highlight.position
         self.__init__()
         self.init_modules()
+        self.current_keyboard.update_highlight(*highlight_position)
 
     T = TypeVar('T')
 
     def load_value(self, k: str, default: T) -> T:
+        """
+        Loads a setting value from the main configuration file, or ``default`` if the setting doesn't exist.
+
+        :param k: The setting key.
+        :param default: Value to default to if the setting doesn't exist.
+        :return: The requested value.
+        """
         if type(default) == bool:
             value = self.config.getboolean('Keyboard Settings', k, fallback=default)
         else:
@@ -198,4 +229,6 @@ class KeyboardManager(CocosNode):
         director.window.set_size(self.current_keyboard.window_width, self.current_keyboard.window_height)
 
 
+"""The singleton; check ``keyboard.manager.KeyboardManager`` for details on usage.
+Don't instantiate KeyboardManager(). Just use this singleton."""
 manager = KeyboardManager()

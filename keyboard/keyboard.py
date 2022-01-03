@@ -1,7 +1,7 @@
 from io import BytesIO
 from itertools import product
-from os.path import abspath
-from typing import Union
+from os.path import abspath, relpath, splitext
+from typing import Optional, Union
 
 import win32clipboard as clp
 from PIL import Image
@@ -14,20 +14,21 @@ from pyglet.window import key, mouse
 
 import pyperclip
 from .key import Key
-from .manager import manager
-
-
-def pretty_print(layouts: dict) -> str:
-    newline = '\n'
-    return '{\n' + [''.join(
-        f"    '{k}': [\n" + f"{''.join([f'        {repr(row)},{newline}' for row in layouts[k]])}" +
-        '    ],\n' for k in layouts
-    )][0] + '}\n'
+from .manager import manager, EDIT_VARS
 
 
 class Keyboard(ColorLayer):
+    """
+    A ``ColorLayer`` that draws a keyboard on screen.
+    """
 
     def __init__(self, name, module) -> None:
+        """
+        Creates a keyboard layer.
+
+        :param name: The keyboard name. Should normally match the module name.
+        :param module: The module defining the keyboard.
+        """
         # super boring initialization stuff
         self.is_event_handler = True
         self.name = name
@@ -37,6 +38,7 @@ class Keyboard(ColorLayer):
         self.backspace_key = getattr(module, 'backspace_key', 'backspace')
         self.enter_key = getattr(module, 'enter_key', 'enter')
         self.preview_keys = getattr(module, 'preview_keys', dict())
+        self.fixed_layout = getattr(module, 'fixed_layout', False)
         self.asset_folder = getattr(module, 'asset_folder', self.name)
         self.layouts = self.extend_layouts(module.layouts if hasattr(module, 'layouts') else {'': [[]]})
         self.default_layout = getattr(module, 'default_layout', sorted(self.layouts.keys())[0])
@@ -120,6 +122,9 @@ class Keyboard(ColorLayer):
         self.loaded = True
 
     def update_layout(self) -> None:
+        """
+        Updates the layout on screen according to the ``self.layouts`` variable.
+        """
         key_preprocess = self.preprocess if manager.preprocess_keys else lambda x: x
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
@@ -146,20 +151,52 @@ class Keyboard(ColorLayer):
             self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else manager.key_color[3]
             self.key_sprites[row][col] = new_sprite
             self.keys.add(self.key_sprites[row][col])
+        self.loaded = True
 
     @property
     def is_loaded(self) -> bool:
+        """
+        Check if the keyboard is fully initialized and loaded into memory.
+
+        :return: True if the keyboard has been loaded, False otherwise.
+        """
         return hasattr(self, 'loaded') and self.loaded
 
-    def get_layout_position(self, x: float, y: float) -> tuple[int, int]:
+    def get_layout_position(self, x: float, y: float, precise: bool = True) -> Optional[tuple[int, int]]:
+        """
+        Convert mouse event (screen) coordinates to layout coordinates, starting from the upper left corner.
+
+        Note that the row index is returned first, for more intuitive layout notation.
+
+        :param x: The x coordinate of the mouse event.
+        :param y: The y coordinate of the mouse event.
+        :param precise: If True, points between the key spaces return None.
+                        If False, coordinates of the closest key space are returned instead.
+                        Default: True.
+        :return: A tuple of (row, col) layout coordinates, or None if the coordinates are out of bounds.
+        """
         x, y = director.get_virtual_coordinates(x, y)
         col = round((x - self.window_width / 2) / (manager.key_size + manager.key_spacing)
                     + (self.board_width - 1) / 2)
         row = round((self.board_height - self.screen_height - 1) / 2
                     - (y - self.window_height / 2) / (manager.key_size + manager.key_spacing))
+        if self.not_on_board((row, col)):
+            return None
+        if precise:
+            x2, y2 = self.get_screen_position((row, col))
+            if abs(x - x2) > manager.key_size or abs(y - y2) > manager.key_size:
+                return None
         return row, col
 
     def get_screen_position(self, pos: tuple[int, int]) -> tuple[float, float]:
+        """
+        Convert layout coordinates to screen coordinates (i.e. for positioning keys on the screen).
+
+        Note that the row index should be first in the tuple, for more intuitive layout notation.
+
+        :param pos: A tuple of (row, col) layout coordinates.
+        :return: A tuple of (x, y) mouse event coordinates.
+        """
         row, col = pos
         x = (col - (self.board_width - 1) / 2) \
             * (manager.key_size + manager.key_spacing) + self.window_width / 2
@@ -227,6 +264,14 @@ class Keyboard(ColorLayer):
         self.pressed_key_position = None
 
     def press_key(self, pos: tuple[int, int]) -> None:
+        """
+        Update ``manager.image_buffer`` according to the key represented by ``pos``.
+
+        Note that the check for keyboard/layout switch keys happens before calling this function,
+        so using its coordinates here will simply add its image to the screen.
+
+        :param pos: A tuple of (row, col) layout coordinates.
+        """
         manager.image_history.append((manager.image_buffer, manager.next_key_position.copy()))
         pressed_key = self.get_key(pos)
         if pressed_key.name == self.enter_key:
@@ -263,7 +308,10 @@ class Keyboard(ColorLayer):
                 manager.next_key_position[0] += key_image.width
         self.update_image()
 
-    def clear_image(self) -> None:
+    def clear_screen(self) -> None:
+        """
+        Clears the screen and clipboard.
+        """
         if manager.screen_image is not None and manager.screen_image.parent == self:
             self.remove(manager.screen_image)
         manager.screen_image = None
@@ -272,12 +320,18 @@ class Keyboard(ColorLayer):
         pyperclip.copy('')
 
     def update_image(self) -> None:
+        """
+        Updates the image on the screen and the output files to match ``manager.image_buffer``,
+        and copies the file in the current output mode to the clipboard if the buffer isn't empty.
+
+        Note that the postprocessing function should be called regardless of whether the buffer is empty.
+        """
         if manager.image_buffer is not None:
             manager.image_buffer.format = 'PNG'
 
         post_processed_image = self.postprocess(manager.image_buffer)
         if post_processed_image is None:
-            self.clear_image()
+            self.clear_screen()
             return
 
         data_buffer = BytesIO()
@@ -383,6 +437,36 @@ class Keyboard(ColorLayer):
                         pass
         return new_layouts
 
+    def pretty_print(self, name: str) -> str:
+        data = getattr(self, name, None)
+        if type(data) == dict:
+            newline = '\n'
+            return f'{name} = {{\n' + [''.join(
+                f"    '{k}': [\n" + f"{''.join([f'        {repr(row)},{newline}' for row in data[k]])}" +
+                '    ],\n' for k in data
+            )][0] + '}\n'
+        else:
+            return f'{name} = {data}\n'
+
+    def save_layout(self) -> None:
+        self.map_layouts()
+        layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
+        for var in EDIT_VARS:
+            layout_edit.write(self.pretty_print(var))
+        layout_edit.close()
+
+    def find_empty(self, start: tuple[int, int] = (0, 0)) -> Optional[tuple[int, int]]:
+        layout = self.layouts[self.current_layout]
+        for row in range(start[0], len(layout)):
+            for col in range((start[1] if row == start[0] else 0), len(layout[row])):
+                if layout[row][col] == '':
+                    return row, col
+        for row in range(start[0] + 1):
+            for col in range(start[1] if row == start[0] else len(layout[row])):
+                if layout[row][col] == '':
+                    return row, col
+        return None
+
     def update_highlight(self, x, y) -> None:
         pos = self.get_layout_position(x, y)
         if self.not_a_key(pos):
@@ -400,7 +484,7 @@ class Keyboard(ColorLayer):
             self.select_key(pos)
 
     def on_mouse_motion(self, x, y, dx, dy) -> None:
-        self.update_highlight(x + dx, y + dy)
+        self.update_highlight(x, y)
 
     def on_mouse_drag(self, x, y, dx, dy, _buttons, _modifiers) -> None:
         self.on_mouse_motion(x, y, dx, dy)  # move the highlight as well!
@@ -449,7 +533,7 @@ class Keyboard(ColorLayer):
             if self.not_on_board(current_pos):
                 current_pos = pressed_pos  # to avoid dragging a key off the board, place it back on its cell
 
-            if pressed_pos == current_pos:
+            if pressed_pos == current_pos or self.fixed_layout:
                 return
 
             key_sprite = self.get_key(pressed_pos)
@@ -466,13 +550,7 @@ class Keyboard(ColorLayer):
                 d[self.current_layout][current_pos[0]][current_pos[1]] = \
                     d[self.current_layout][pressed_pos[0]][pressed_pos[1]]
                 d[self.current_layout][pressed_pos[0]][pressed_pos[1]] = swapped_key
-            self.map_layouts()
-
-            # print(self.pretty_layout())
-            layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
-            layout_edit.write(f'layouts = {pretty_print(self.layouts)}')
-            layout_edit.write(f'keymap = {pretty_print(self.keymap)}')
-            layout_edit.close()
+            self.save_layout()
 
     def on_key_press(self, symbol, modifiers) -> None:
         if symbol == key.R:
@@ -503,3 +581,29 @@ class Keyboard(ColorLayer):
                     x, y = self.get_screen_position(position)
                     self.on_mouse_press(x, y, mouse.LEFT, modifiers)
                     self.on_mouse_release(x, y, mouse.LEFT, modifiers)
+
+    def on_file_drop(self, x, y, paths):
+        # TODO: add keycode input
+        if self.fixed_layout:
+            return
+        pos = self.get_layout_position(x, y)
+        if pos is None:
+            pos = self.find_empty()
+            if pos is None:
+                return
+        asset_root = f'keyboards/assets/{self.asset_folder}'
+        for path in paths:
+            self.layouts[self.current_layout][pos[0]][pos[1]] = splitext(relpath(path, asset_root))[0]
+            if self.current_layout in self.keymap:
+                self.keymap[self.current_layout][pos[0]][pos[1]] = ''
+            pos = self.find_empty(pos)
+            if pos is None:
+                break
+        self.save_layout()
+        self.update_layout()
+
+    def on_mouse_enter(self, x, y):
+        self.highlight.opacity = manager.highlight_color[3]
+
+    def on_mouse_leave(self, x, y):
+        self.highlight.opacity = 0
