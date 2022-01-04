@@ -40,6 +40,7 @@ setup(
     version='0.1.0',
     options={
         'build_exe': {
+            'excludes': ['numpy', 'scipy', 'test', 'unittest'],
             'includes': ['glitch_this', 'win32com'],
             'include_files': gen_data_files(
                 ['effects', 'keyboards'],
