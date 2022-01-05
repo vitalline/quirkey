@@ -79,7 +79,6 @@ class Key(Sprite):
     def rename(self, new_name) -> None:
         if type(new_name) == list:
             new_name = repr(new_name)
-            print(new_name)
         self.name = new_name
 
     def resize(self, height: Union[int, float], width: Union[None, int, float] = None) -> None:
