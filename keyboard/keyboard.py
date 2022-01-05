@@ -184,7 +184,7 @@ class Keyboard(ColorLayer):
             return None
         if precise:
             x2, y2 = self.get_screen_position((row, col))
-            if abs(x - x2) > manager.key_size or abs(y - y2) > manager.key_size:
+            if abs(x - x2) > manager.key_size / 2 or abs(y - y2) > manager.key_size / 2:
                 return None
         return row, col
 
