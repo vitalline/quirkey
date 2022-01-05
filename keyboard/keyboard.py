@@ -550,10 +550,11 @@ class Keyboard(ColorLayer):
                 self.board_sprites[current_pos[0]][current_pos[1]].opacity = manager.key_color[3]
                 self.board_sprites[pressed_pos[0]][pressed_pos[1]].opacity = 0
             for d in self.layouts, self.keymap:
-                swapped_key = d[self.current_layout][current_pos[0]][current_pos[1]]
-                d[self.current_layout][current_pos[0]][current_pos[1]] = \
-                    d[self.current_layout][pressed_pos[0]][pressed_pos[1]]
-                d[self.current_layout][pressed_pos[0]][pressed_pos[1]] = swapped_key
+                if self.current_layout in d:
+                    swapped_key = d[self.current_layout][current_pos[0]][current_pos[1]]
+                    d[self.current_layout][current_pos[0]][current_pos[1]] = \
+                        d[self.current_layout][pressed_pos[0]][pressed_pos[1]]
+                    d[self.current_layout][pressed_pos[0]][pressed_pos[1]] = swapped_key
             self.save_layout()
 
     def on_key_press(self, symbol, modifiers) -> None:
