@@ -126,6 +126,7 @@ class Keyboard(ColorLayer):
         Updates the layout on screen according to the ``self.layouts`` variable.
         """
         key_preprocess = self.preprocess if manager.preprocess_keys else lambda x: x
+        max_size = max(manager.key_size, manager.char_size)
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
@@ -148,7 +149,7 @@ class Keyboard(ColorLayer):
             self.key_sprites[row][col].rename(old_name)
             self.current_key_position = (row, col)
             self.current_key_is_pressed = False
-            new_sprite = Key(new_name, asset_folder, preprocess=key_preprocess)
+            new_sprite = Key(new_name, asset_folder, size=max_size, preprocess=key_preprocess)
             new_sprite.rename(old_name)
             new_sprite.position = self.get_screen_position(self.current_key_position)
             new_sprite.resize(manager.key_size)

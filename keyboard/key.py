@@ -31,7 +31,7 @@ class Key(Sprite):
             if size is None:
                 size = 64 * grid_width, 64 * grid_height
             elif type(size) in (int, float):
-                size = size, size
+                size = size * grid_width, size * grid_height
             self.base_image = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
             for i, name_part in enumerate(new_name):
                 image_part = Image.open(self.get_path(name_part))
@@ -49,6 +49,10 @@ class Key(Sprite):
             if size is None:
                 size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
+                self.base_image = self.base_image.resize((
+                    round(size / self.base_image.height * self.base_image.width),
+                    round(size)
+                ))
                 size = (size,)
         self.base_image = self.base_image.convert('RGBA')
         self.base_image.format = 'PNG'
