@@ -130,17 +130,21 @@ class Keyboard(ColorLayer):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
             old_name = self.layouts[self.current_layout][row][col]
-            path_name = old_name.split(':', 1)[0]
-            layout_name = path_name.split('/', 1)[0]
-            for name in old_name, path_name, layout_name:
-                if name in manager.preview_keys:
-                    _, keyboard = manager.get_keyboard(layout_name)
-                    asset_folder = keyboard.asset_folder if keyboard is not None else self.asset_folder
-                    new_name = manager.preview_keys[name]
-                    break
+            if type(old_name) is str:
+                path_name = old_name.split(':', 1)[0]
+                layout_name = path_name.split('/', 1)[0]
+                for name in old_name, path_name, layout_name:
+                    if name in manager.preview_keys:
+                        _, keyboard = manager.get_keyboard(layout_name)
+                        asset_folder = keyboard.asset_folder if keyboard is not None else self.asset_folder
+                        new_name = manager.preview_keys[name]
+                        break
+                else:
+                    asset_folder = self.asset_folder
+                    new_name = self.preview_keys[old_name] if old_name in self.preview_keys else old_name
             else:
                 asset_folder = self.asset_folder
-                new_name = self.preview_keys[old_name] if old_name in self.preview_keys else old_name
+                new_name = old_name
             self.key_sprites[row][col].rename(old_name)
             self.current_key_position = (row, col)
             self.current_key_is_pressed = False

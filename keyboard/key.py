@@ -37,11 +37,11 @@ class Key(Sprite):
                 image_part = Image.open(self.get_path(name_part))
                 image_part = image_part.resize((
                     round((image_part.width / image_part.height) * (size[0] / grid_width)),
-                    round(size[1] / grid_width)
+                    round(size[1] / grid_height)
                 ))
                 self.base_image.paste(image_part, (
-                    round(image_part.height * (i % grid_width) + (image_part.height - image_part.width) / 2),
-                    round(image_part.height * (i // grid_width + (grid_width - grid_height) / 2))
+                    round(image_part.width * (i % grid_width)),
+                    round(image_part.height * (i // grid_width))
                 ))
             self.rename(new_name)
         else:
@@ -78,14 +78,15 @@ class Key(Sprite):
 
     def rename(self, new_name) -> None:
         if type(new_name) == list:
-            new_name = '|'.join(new_name)
+            new_name = repr(new_name)
+            print(new_name)
         self.name = new_name
 
     def resize(self, height: Union[int, float], width: Union[None, int, float] = None) -> None:
         if width is None:
             self.scale_x = 1
             self.scale_y = 1
-            self.scale = height * self.scale / self.height
+            self.scale = height * self.scale / max(self.height, self.width)
         else:
             self.scale = 1
             self.scale_x = width * self.scale_x / self.width
