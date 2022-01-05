@@ -126,7 +126,7 @@ class Keyboard(ColorLayer):
         Updates the layout on screen according to the ``self.layouts`` variable.
         """
         key_preprocess = self.preprocess if manager.preprocess_keys else lambda x: x
-        max_size = max(manager.key_size, manager.char_size)
+        max_size = max(manager.key_size * manager.pressed_key_scale, manager.char_size)
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
@@ -609,7 +609,7 @@ class Keyboard(ColorLayer):
         self.update_layout()
 
     def on_mouse_enter(self, x, y):
-        self.highlight.opacity = manager.highlight_color[3]
+        self.update_highlight(x, y)
 
     def on_mouse_leave(self, x, y):
         self.highlight.opacity = 0

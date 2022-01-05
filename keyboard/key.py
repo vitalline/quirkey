@@ -29,31 +29,35 @@ class Key(Sprite):
                 grid_height = ceil(len(name) / grid_width)
                 new_name = name[:] + [''] * (len(name) - grid_width * grid_height)
             if size is None:
-                size = 64 * grid_width, 64 * grid_height
-            elif type(size) in (int, float):
-                size = size * grid_width, size * grid_height
-            self.base_image = Image.new(mode='RGBA', size=size, color=(0, 0, 0, 0))
+                size = 64
+            if type(size) in (int, float):
+                img_size = round(size * grid_width), round(size * grid_height)
+                size = (size, size)
+            else:
+                img_size = round(size[0] * grid_width), round(size[1] * grid_height)
+            self.base_image = Image.new(mode='RGBA', size=img_size, color=(0, 0, 0, 0))
             for i, name_part in enumerate(new_name):
                 image_part = Image.open(self.get_path(name_part))
                 image_part = image_part.resize((
-                    round((image_part.width / image_part.height) * (size[0] / grid_width)),
-                    round(size[1] / grid_height)
+                    round(min(image_part.width / image_part.height, 1) * size[0]),
+                    round(min(image_part.height / image_part.width, 1) * size[1])
                 ))
+                x, y = i % grid_width, i // grid_width
                 self.base_image.paste(image_part, (
-                    round(image_part.width * (i % grid_width)),
-                    round(image_part.height * (i // grid_width))
+                    round(image_part.width * x + (size[0] - image_part.width) * (x + 0.5)),
+                    round(image_part.height * y + (size[1] - image_part.height) * (y + 0.5))
                 ))
             self.rename(new_name)
         else:
             self.base_image = Image.open(self.get_path())
             if size is None:
-                size = self.base_image.width, self.base_image.height
+                img_size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
                 self.base_image = self.base_image.resize((
                     round(size / self.base_image.height * self.base_image.width),
                     round(size)
                 ))
-                size = (size,)
+                img_size = (round(size),)
         self.base_image = self.base_image.convert('RGBA')
         self.base_image.format = 'PNG'
         image_buffer = preprocess(self.base_image) if not self.empty else self.base_image
@@ -61,7 +65,7 @@ class Key(Sprite):
         image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
         super().__init__(load('temp.png', file=data_buffer), **kwargs)
-        self.resize(*size)
+        self.resize(*img_size)
 
     def get_path(self, name: str = None, folder: str = None) -> str:
         if name is None:
