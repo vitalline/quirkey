@@ -597,9 +597,9 @@ class Keyboard(ColorLayer):
             pos = self.find_empty()
             if pos is None:
                 return
-        asset_root = f'keyboards/assets/{self.asset_folder}'
+        root = f'keyboards/assets/{self.asset_folder}'
         for path in paths:
-            self.layouts[self.current_layout][pos[0]][pos[1]] = splitext(relpath(path, asset_root))[0]
+            self.layouts[self.current_layout][pos[0]][pos[1]] = splitext(relpath(path, root))[0].replace('\\', '/')
             if self.current_layout in self.keymap:
                 self.keymap[self.current_layout][pos[0]][pos[1]] = ''
             pos = self.find_empty(pos)
@@ -611,5 +611,5 @@ class Keyboard(ColorLayer):
     def on_mouse_enter(self, x, y):
         self.update_highlight(x, y)
 
-    def on_mouse_leave(self, x, y):
+    def on_mouse_leave(self, _x, _y):
         self.highlight.opacity = 0

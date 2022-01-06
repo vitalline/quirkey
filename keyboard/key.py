@@ -58,6 +58,8 @@ class Key(Sprite):
                     round(size)
                 ))
                 img_size = (round(size),)
+            else:
+                img_size = (round(size[0]), round(size[1]))
         self.base_image = self.base_image.convert('RGBA')
         self.base_image.format = 'PNG'
         image_buffer = preprocess(self.base_image) if not self.empty else self.base_image
