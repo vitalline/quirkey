@@ -24,6 +24,7 @@ layouts = {
 }
 fixed_layout = True
 
+
 def postprocess(image: Image.Image) -> Image.Image:
     manager.keyboard.update_layout()
     return image

@@ -37,7 +37,7 @@ def zip_write(zip_handle, zip_path, include, exclude=()):
 
 setup(
     name='quirkey',
-    version='0.1.0',
+    version='0.2.0',
     options={
         'build_exe': {
             'excludes': ['numpy', 'scipy', 'test', 'unittest'],
@@ -45,7 +45,7 @@ setup(
             'include_files': gen_data_files(
                 ['effects', 'keyboards'],
                 ['effects/__pycache__', 'keyboards/__pycache__'],
-            ) + ['config.ini', 'config_rb.ini'],
+            ) + ['config_default.ini', 'config_rb.ini', 'config_tiled.ini'],
         }
     },
     executables=[
@@ -62,19 +62,26 @@ while isfile(filename.format(timestamp, version)):
 filename = filename.format(timestamp, version)
 zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
 zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
+    'build/exe.win-amd64-3.9/config_default.ini',
     'build/exe.win-amd64-3.9/config_rb.ini',
+    'build/exe.win-amd64-3.9/config_tiled.ini',
     'build/exe.win-amd64-3.9/keyboards/rb.py',
     'build/exe.win-amd64-3.9/keyboards/assets/rb',
     'build/exe.win-amd64-3.9/keyboards/hs.py',
     'build/exe.win-amd64-3.9/keyboards/assets/hs',
+    'build/exe.win-amd64-3.9/keyboards/tiles.py',
+    'build/exe.win-amd64-3.9/keyboards/assets/tiles',
+    'build/exe.win-amd64-3.9/effects/tiled.py',
     # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
 ])
+zip_file.write('build/exe.win-amd64-3.9/config_default.ini', 'config.ini')
 zip_file.close()
 filename = filename.replace('keyboard', 'keyboard_rb')
 zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
 zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
-    'build/exe.win-amd64-3.9/config.ini',
+    'build/exe.win-amd64-3.9/config_default.ini',
     'build/exe.win-amd64-3.9/config_rb.ini',
+    'build/exe.win-amd64-3.9/config_tiled.ini',
     'build/exe.win-amd64-3.9/keyboards',
     'build/exe.win-amd64-3.9/effects',
     # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
@@ -83,4 +90,23 @@ zip_write(zip_file, 'keyboards/assets/rb', ['build/exe.win-amd64-3.9/keyboards/a
 zip_write(zip_file, 'keyboards/assets/util', ['build/exe.win-amd64-3.9/keyboards/assets/util'], [])
 zip_file.write('build/exe.win-amd64-3.9/keyboards/rb.py', 'keyboards/rb.py')
 zip_file.write('build/exe.win-amd64-3.9/config_rb.ini', 'config.ini')
+zip_file.close()
+filename = filename.replace('keyboard_rb', 'keyboard_tiled')
+zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
+zip_write(zip_file, '', ['build/exe.win-amd64-3.9'], [
+    'build/exe.win-amd64-3.9/config_default.ini',
+    'build/exe.win-amd64-3.9/config_rb.ini',
+    'build/exe.win-amd64-3.9/config_tiled.ini',
+    'build/exe.win-amd64-3.9/keyboards',
+    'build/exe.win-amd64-3.9/effects',
+    # 'build/exe.win-amd64-3.9/keyboard_debug.exe',
+])
+zip_write(zip_file, 'keyboards/assets/tiles', ['build/exe.win-amd64-3.9/keyboards/assets/tiles'], [])
+zip_write(zip_file, 'keyboards/assets/util',
+          ['build/exe.win-amd64-3.9/keyboards/assets/util'],
+          ['build/exe.win-amd64-3.9/keyboards/assets/util/cursor.png'])
+zip_file.write('build/exe.win-amd64-3.9/keyboards/assets/util/cell.png', 'keyboards/assets/util/cursor.png')
+zip_file.write('build/exe.win-amd64-3.9/keyboards/tiles.py', 'keyboards/tiles.py')
+zip_file.write('build/exe.win-amd64-3.9/effects/tiled.py', 'effects/tiled.py')
+zip_file.write('build/exe.win-amd64-3.9/config_tiled.ini', 'config.ini')
 zip_file.close()

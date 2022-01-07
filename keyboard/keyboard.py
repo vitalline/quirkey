@@ -457,7 +457,8 @@ class Keyboard(ColorLayer):
         self.map_layouts()
         layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
         for var in EDIT_VARS:
-            layout_edit.write(self.pretty_print(var))
+            if var != dict():
+                layout_edit.write(self.pretty_print(var))
         layout_edit.close()
 
     def find_empty(self, start: tuple[int, int] = (0, 0)) -> Optional[tuple[int, int]]:
@@ -535,7 +536,7 @@ class Keyboard(ColorLayer):
                 else:
                     self.press_key(current_pos)
                 return
-            if self.not_on_board(current_pos):
+            if current_pos is None or self.not_on_board(current_pos):
                 current_pos = pressed_pos  # to avoid dragging a key off the board, place it back on its cell
 
             if pressed_pos == current_pos or self.fixed_layout:

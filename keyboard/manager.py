@@ -2,6 +2,7 @@ import os
 from configparser import ConfigParser, Error
 from glob import iglob
 from importlib import import_module, invalidate_caches, reload
+from traceback import print_exc
 from typing import Callable, Optional, TypeVar, TYPE_CHECKING
 
 from PIL import Image
@@ -161,7 +162,7 @@ class KeyboardManager(CocosNode):
 
     def load_processing(
             self, processing_list: list[str], processing_modules: dict
-    ) -> tuple[dict, Callable[[Image.Image], Optional[Image.Image]]]:
+    ) -> tuple[dict, Callable[[Optional[Image.Image]], Optional[Image.Image]]]:
 
         for name in processing_list:
             try:
@@ -172,13 +173,14 @@ class KeyboardManager(CocosNode):
             except ModuleNotFoundError:
                 pass
 
-        def processing_func(image: Image.Image) -> Optional[Image.Image]:
+        def processing_func(image: Optional[Image.Image]) -> Optional[Image.Image]:
             for i in processing_list:
-                if image is None:
-                    return None
-                else:
+                if image is not None:
                     image.format = 'PNG'
-                image = getattr(processing_modules.get(i, None), 'process', lambda x: x)(image)
+                try:
+                    image = getattr(processing_modules.get(i, None), 'process', lambda x: x)(image)
+                except Exception:
+                    print_exc()
             return image
 
         return processing_modules, processing_func
