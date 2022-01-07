@@ -53,10 +53,11 @@ class Key(Sprite):
             if size is None:
                 img_size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
-                self.base_image = self.base_image.resize((
-                    round(size / self.base_image.height * self.base_image.width),
-                    round(size)
-                ))
+                if self.base_image.height > size:
+                    self.base_image = self.base_image.resize((
+                        round(size / self.base_image.height * self.base_image.width),
+                        round(size)
+                    ))
                 img_size = (round(size),)
             else:
                 img_size = (round(size[0]), round(size[1]))
