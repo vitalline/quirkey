@@ -1,6 +1,7 @@
 board_height = 5
 board_width = 10
 screen_height = 4
+resample = 0
 asset_folder = 'hs'
 backspace_key = 'backspace'
 enter_key = 'enter'

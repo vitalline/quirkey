@@ -45,6 +45,7 @@ class Keyboard(ColorLayer):
         self.keymap = getattr(module, 'keymap', dict())
         self.mapping = dict()
         self.map_layouts()
+        self.resample = getattr(module, 'resample', manager.resample)
         self.preprocess = getattr(module, 'preprocess', manager.preprocess)
         self.postprocess = getattr(module, 'postprocess', manager.postprocess)
         self.window_width = self.board_width \
@@ -149,7 +150,7 @@ class Keyboard(ColorLayer):
             self.key_sprites[row][col].rename(old_name)
             self.current_key_position = (row, col)
             self.current_key_is_pressed = False
-            new_sprite = Key(new_name, asset_folder, size=max_size, preprocess=key_preprocess)
+            new_sprite = Key(new_name, asset_folder, size=max_size, preprocess=key_preprocess, resample=self.resample)
             new_sprite.rename(old_name)
             new_sprite.position = self.get_screen_position(self.current_key_position)
             new_sprite.resize(manager.key_size)
@@ -283,7 +284,10 @@ class Keyboard(ColorLayer):
             key_image = Key().base_image
         else:
             key_image = pressed_key.base_image
-        key_image = key_image.resize((round(manager.char_size * key_image.width / key_image.height), manager.char_size))
+        key_image = key_image.resize(
+            (round(manager.char_size * key_image.width / key_image.height), manager.char_size),
+            resample=self.resample
+        )
         key_image.format = 'PNG'
         key_image = self.preprocess(key_image)
         if key_image is None:

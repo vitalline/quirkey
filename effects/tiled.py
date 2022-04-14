@@ -116,12 +116,12 @@ def process(_: Optional[Image.Image]) -> Optional[Image.Image]:
                 tiles[row][col] = tile
                 rotations[row][col] = 0
             if tiles[row][col] is not None:
-                tile = tiles[row][col].resize((size, size)).rotate(rotations[row][col])
+                tile = tiles[row][col].resize((size, size), resample=keyboard.resample).rotate(rotations[row][col])
                 tile_map.paste(tile, tuple(manager.next_key_position))
     elif not (key.name.startswith('dir_') or key.name.startswith('rotate_') or key.name == 'clear'):
         tiles = [[tile]]
         rotations = [[0]]
         rows, cols = 1, 1
         manager.next_key_position = [0, 0]
-        tile_map = tile.resize((size, size))
+        tile_map = tile.resize((size, size), resample=keyboard.resample)
     return tile_map

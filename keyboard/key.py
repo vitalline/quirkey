@@ -11,7 +11,8 @@ from pyglet.image import load
 class Key(Sprite):
     def __init__(self, name: Union[None, str, list[Union[str, list[str]]]] = None, folder: str = 'util',
                  size: Union[None, int, float, tuple[Union[int, float], Union[int, float]]] = None,
-                 preprocess: Callable[[Image.Image], Image.Image] = lambda x: x, **kwargs) -> None:
+                 preprocess: Callable[[Image.Image], Image.Image] = lambda x: x,
+                 resample: int = Image.BILINEAR, **kwargs) -> None:
         self.empty = False
         if name in (None, []):
             self.empty = True
@@ -41,7 +42,7 @@ class Key(Sprite):
                 image_part = image_part.resize((
                     round(min(image_part.width / image_part.height, 1) * size[0]),
                     round(min(image_part.height / image_part.width, 1) * size[1])
-                ))
+                ), resample=resample)
                 x, y = i % grid_width, i // grid_width
                 self.base_image.paste(image_part, (
                     round(image_part.width * x + (size[0] - image_part.width) * (x + 0.5)),
@@ -57,7 +58,7 @@ class Key(Sprite):
                     self.base_image = self.base_image.resize((
                         round(size / self.base_image.height * self.base_image.width),
                         round(size)
-                    ))
+                    ), resample=resample)
                 img_size = (round(size),)
             else:
                 img_size = (round(size[0]), round(size[1]))
