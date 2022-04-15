@@ -380,17 +380,17 @@ class Keyboard(ColorLayer):
         opaque_image = background_image.copy()
         opaque_image.mode = 'RGB'
 
-        path = 'regular.png'
+        path = 'image_regular.png'
         background_image.save(path)   # in case my clipboard shenanigans don't work, use the file itself
 
-        path = 'opaque.png'
+        path = 'image_opaque.png'
         opaque_image.save(path)   # or use this file if you're having transparency issues
 
-        path = 'transparent.png'
+        path = 'image_transparent.png'
         post_processed_image.save(path)  # or this one if you want to edit in a background or something
 
-        copy_path = abspath(f'{manager.output_mode}.png').encode('utf-16-le') + b'\0'
-        copy_file = open(f'{manager.output_mode}.png', 'rb')
+        copy_path = abspath(f'image_{manager.output_mode}.png').encode('utf-16-le') + b'\0'
+        copy_file = open(f'image_{manager.output_mode}.png', 'rb')
 
         clp.OpenClipboard()
         clp.EmptyClipboard()  # You may have seen this on https://stackoverflow.com/q/66845295/17391024. You're welcome.

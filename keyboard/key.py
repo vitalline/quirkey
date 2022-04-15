@@ -54,22 +54,17 @@ class Key(Sprite):
             if size is None:
                 img_size = self.base_image.width, self.base_image.height
             elif type(size) in (int, float):
-                if self.base_image.height > size:
-                    self.base_image = self.base_image.resize((
-                        round(size / self.base_image.height * self.base_image.width),
-                        round(size)
-                    ), resample=resample)
-                img_size = (round(size),)
+                img_size = (round(size / self.base_image.height * self.base_image.width), round(size))
             else:
                 img_size = (round(size[0]), round(size[1]))
         self.base_image = self.base_image.convert('RGBA')
         self.base_image.format = 'PNG'
         image_buffer = preprocess(self.base_image) if not self.empty else self.base_image
+        image_buffer = image_buffer.resize(img_size, resample=resample)
         data_buffer = BytesIO()
         image_buffer.save(data_buffer, format='png')
         data_buffer.seek(0)
         super().__init__(load('temp.png', file=data_buffer), **kwargs)
-        self.resize(*img_size)
 
     def get_path(self, name: str = None, folder: str = None) -> str:
         if name is None:

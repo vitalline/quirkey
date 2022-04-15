@@ -1,5 +1,7 @@
 from PIL import Image
 
+from keyboard import manager
+
 board_height = 5
 board_width = 10
 screen_height = 4
@@ -33,18 +35,16 @@ layouts = {
         ['', '0035', '0036', '0068', '0069', '0078', '0077', '0081', '0093', ''],
         ['', '0039', '0040', '0070', '0071', '0072', '0089', '0076', '0073', ''],
         ['', '0037', '0038', '0074', '0075', '0088', '0094', '0079', '0080', ''],
-        ['', '0259', '0090', '0091', '0092', '0240', '0258', '0260', '0261', 'backspace'],
+        ['', '0258', '0090', '0091', '0092', '0239', '0257', '0259', '0260', 'backspace'],
         ['', '', 'upper', 'lower', '0000', '0085', '0086', '0087', '', 'enter'],
     ],
 }
 
+size = manager.char_size
+
 space, top_left, top_right, bottom_left, bottom_right, horizontal, vertical = (
-    Image.open(f'keyboards/assets/{asset_folder}/000{i}.png').resize((8, 8), 0).convert('RGBA') for i in range(7)
+    Image.open(f'keyboards/assets/{asset_folder}/000{i}.png').resize((size, size), 0).convert('RGBA') for i in range(7)
 )
-
-
-def preprocess(image: Image.Image) -> Image.Image:
-    return image.resize((8, 8), 0)
 
 
 def postprocess(image: Image.Image) -> Image.Image:
@@ -53,30 +53,30 @@ def postprocess(image: Image.Image) -> Image.Image:
     x, y = 0, 0
     buffer = Image.new(
         mode='RGBA',
-        size=(image.width + 16, image.height + 16),
+        size=(image.width + size * 2, image.height + size * 2),
         color=(248, 248, 248)
     )
-    buffer.alpha_composite(image, (8, 8))
+    buffer.alpha_composite(image, (size, size))
     while y < buffer.height:
         while x < buffer.width:
             if y == 0:
                 if x == 0:
                     buffer.paste(top_left, (x, y))
-                elif x == buffer.width - 8:
+                elif x == buffer.width - size:
                     buffer.paste(top_right, (x, y))
                 else:
                     buffer.paste(horizontal, (x, y))
-            elif y == buffer.height - 8:
+            elif y == buffer.height - size:
                 if x == 0:
                     buffer.paste(bottom_left, (x, y))
-                elif x == buffer.width - 8:
+                elif x == buffer.width - size:
                     buffer.paste(bottom_right, (x, y))
                 else:
                     buffer.paste(horizontal, (x, y))
             else:
-                if x == 0 or x == buffer.width - 8:
+                if x == 0 or x == buffer.width - size:
                     buffer.paste(vertical, (x, y))
-            x += 8
+            x += size
         x = 0
-        y += 8
+        y += size
     return buffer
