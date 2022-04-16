@@ -43,6 +43,7 @@ class Keyboard(ColorLayer):
         self.layouts = self.extend_layouts(module.layouts if hasattr(module, 'layouts') else {'': [[]]})
         self.default_layout = getattr(module, 'default_layout', sorted(self.layouts.keys())[0])
         self.keymap = getattr(module, 'keymap', dict())
+        self.alt_text = getattr(module, 'alt_text', dict())
         self.mapping = dict()
         self.map_layouts()
         self.resample = getattr(module, 'resample', manager.resample)
@@ -96,6 +97,7 @@ class Keyboard(ColorLayer):
             position=(manager.border_width, self.window_height - manager.border_width),
         )
         self.cursor.image_anchor = 0, self.cursor.image.height
+        self.cursor.resize(min(manager.char_size, self.screen.height))
         self.keys = BatchNode()
         self.overlay = BatchNode()
         self.active_key = BatchNode()
@@ -157,6 +159,7 @@ class Keyboard(ColorLayer):
             self.board_sprites[row][col].opacity = 0 if new_sprite.is_empty() else manager.key_color[3]
             self.key_sprites[row][col] = new_sprite
             self.keys.add(self.key_sprites[row][col])
+        director.window.set_caption(f'Keyboard: {self.name}/{self.current_layout}')
         self.loaded = True
 
     @property
@@ -238,6 +241,19 @@ class Keyboard(ColorLayer):
     def current_col(self) -> int:
         return self.current_key_position[1]
 
+    def get_alt_text(self, pos: tuple[int, int]) -> str:
+        try:
+            return self.alt_text[self.current_layout][pos[0]][pos[1]]
+        except (IndexError, KeyError):
+            return ''
+
+    def add_alt_text(self, pos: tuple[int, int]) -> None:
+        text_buffer = manager.text_buffer
+        alt_text = self.get_alt_text(pos)
+        if len(alt_text) > 1 and alt_text[0].isalnum() and (len(text_buffer) > 0 and not text_buffer[-1].isspace()):
+            text_buffer += ' '
+        manager.text_buffer = text_buffer + alt_text
+
     def select_key(self, pos: tuple[int, int]) -> None:
         if self.not_a_key(pos):
             return  # we shouldn't select a nonexistent key
@@ -279,6 +295,7 @@ class Keyboard(ColorLayer):
         :param pos: A tuple of (row, col) layout coordinates.
         """
         manager.image_history.append((manager.image_buffer, manager.next_key_position.copy()))
+        manager.text_history.append(manager.text_buffer)
         pressed_key = self.get_key(pos)
         if pressed_key.name == self.enter_key:
             key_image = Key().base_image
@@ -292,6 +309,7 @@ class Keyboard(ColorLayer):
         key_image = self.preprocess(key_image)
         if key_image is None:
             manager.image_buffer, manager.next_key_position = manager.image_history.pop()
+            manager.text_buffer = manager.text_history.pop()
         else:
             if pressed_key.name == self.enter_key:
                 manager.next_key_position = [0, manager.next_key_position[1] + key_image.height]
@@ -313,7 +331,10 @@ class Keyboard(ColorLayer):
             # noinspection PyTypeChecker
             new_buffer.paste(key_image, tuple(manager.next_key_position))
             manager.image_buffer = new_buffer
-            if pressed_key.name != self.enter_key:
+            if pressed_key.name == self.enter_key:
+                manager.text_buffer += '\n'
+            else:
+                self.add_alt_text(pos)
                 manager.next_key_position[0] += key_image.width
         self.update_image()
 
@@ -325,7 +346,7 @@ class Keyboard(ColorLayer):
             self.remove(manager.screen_image)
         manager.screen_image = None
         self.cursor.position = (manager.border_width, self.window_height - manager.border_width)
-        self.cursor.resize(manager.char_size)
+        self.cursor.resize(min(manager.char_size, self.screen.height))
         pyperclip.copy('')
 
     def update_image(self) -> None:
@@ -449,11 +470,13 @@ class Keyboard(ColorLayer):
     def pretty_print(self, name: str) -> str:
         data = getattr(self, name, None)
         if type(data) == dict:
-            newline = '\n'
-            return f'{name} = {{\n' + [''.join(
-                f"    '{k}': [\n" + f"{''.join([f'        {repr(row)},{newline}' for row in data[k]])}" +
-                '    ],\n' for k in data
-            )][0] + '}\n'
+            if data:
+                newline = '\n'
+                return f'{name} = {{\n' + [''.join(
+                    f"    '{k}': [\n" + f"{''.join([f'        {repr(row)},{newline}' for row in data[k]])}" +
+                    '    ],\n' for k in data
+                )][0] + '}\n'
+            return ''
         else:
             return f'{name} = {data}\n'
 
@@ -461,8 +484,7 @@ class Keyboard(ColorLayer):
         self.map_layouts()
         layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
         for var in EDIT_VARS:
-            if var != dict():
-                layout_edit.write(self.pretty_print(var))
+            layout_edit.write(self.pretty_print(var))
         layout_edit.close()
 
     def find_empty(self, start: tuple[int, int] = (0, 0)) -> Optional[tuple[int, int]]:
@@ -478,6 +500,7 @@ class Keyboard(ColorLayer):
         return None
 
     def update_highlight(self, x, y) -> None:
+        # TODO: add alt text preview
         pos = self.get_layout_position(x, y)
         if self.not_a_key(pos):
             self.highlight.opacity = 0
@@ -493,7 +516,7 @@ class Keyboard(ColorLayer):
             self.deselect_key()  # just in case we had something previously selected
             self.select_key(pos)
 
-    def on_mouse_motion(self, x, y, dx, dy) -> None:
+    def on_mouse_motion(self, x, y, _dx, _dy) -> None:
         self.update_highlight(x, y)
 
     def on_mouse_drag(self, x, y, dx, dy, _buttons, _modifiers) -> None:
@@ -502,6 +525,7 @@ class Keyboard(ColorLayer):
     def on_mouse_release(self, x, y, buttons, modifiers) -> None:
         if self.nothing_selected():
             return
+        # TODO: left-clicking the screen copies the image, right-clicking copies alt text
         if buttons & (mouse.LEFT | mouse.RIGHT):
             current_pos = self.get_layout_position(x, y)
             pressed_pos = self.pressed_key_position
@@ -533,9 +557,12 @@ class Keyboard(ColorLayer):
                         return
                     if buttons & mouse.LEFT and not modifiers & key.MOD_SHIFT:
                         manager.image_buffer, manager.next_key_position = manager.image_history.pop()
+                        manager.text_buffer = manager.text_history.pop()
                     elif buttons & mouse.RIGHT or (buttons & mouse.LEFT and modifiers & key.MOD_SHIFT):
                         manager.image_buffer, manager.next_key_position = manager.image_history[0]
                         manager.image_history.clear()
+                        manager.text_buffer = manager.text_history[0]
+                        manager.text_history.clear()
                     self.update_image()
                 else:
                     self.press_key(current_pos)
@@ -555,7 +582,7 @@ class Keyboard(ColorLayer):
             if swapped_key.is_empty():
                 self.board_sprites[current_pos[0]][current_pos[1]].opacity = manager.key_color[3]
                 self.board_sprites[pressed_pos[0]][pressed_pos[1]].opacity = 0
-            for d in self.layouts, self.keymap:
+            for d in self.layouts, self.keymap, self.alt_text:
                 if self.current_layout in d:
                     swapped_key = d[self.current_layout][current_pos[0]][current_pos[1]]
                     d[self.current_layout][current_pos[0]][current_pos[1]] = \
@@ -564,7 +591,14 @@ class Keyboard(ColorLayer):
             self.save_layout()
 
     def on_key_press(self, symbol, modifiers) -> None:
+        if symbol == key.T:
+            if modifiers & key.MOD_ALT:
+                pyperclip.copy(manager.text_buffer)
+                return
         if symbol == key.R:
+            if modifiers & key.MOD_ALT:
+                self.update_image()
+                return
             if modifiers & key.MOD_SHIFT:
                 manager.clear_edits()
             if modifiers & key.MOD_ACCEL:  # CMD on OSX, CTRL otherwise
@@ -605,8 +639,9 @@ class Keyboard(ColorLayer):
         root = f'keyboards/assets/{self.asset_folder}'
         for path in paths:
             self.layouts[self.current_layout][pos[0]][pos[1]] = splitext(relpath(path, root))[0].replace('\\', '/')
-            if self.current_layout in self.keymap:
-                self.keymap[self.current_layout][pos[0]][pos[1]] = ''
+            for d in self.keymap, self.alt_text:
+                if self.current_layout in d:
+                    d[self.current_layout][pos[0]][pos[1]] = ''
             pos = self.find_empty(pos)
             if pos is None:
                 break

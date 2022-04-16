@@ -74,3 +74,13 @@ layouts = {
         ['words1', 'words2', 'pos', 'neg', 'sys', 'other', 'pronouns', 'cyr', 'sym', 'lat', 'en_words/tags', 'enter', 'backspace'],
     ],
 }
+
+alt_text = {
+    k: [[string
+         .replace('_', '/')
+         # TODO: remove the need for these three
+         .replace('онибудь', 'о-нибудь')
+         .replace('хедмейтр', 'хедмейт-р')
+         .replace('хедмейтп', 'хедмейт-п')
+         for string in row] for row in v] for k, v in layouts.items()
+}

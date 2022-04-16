@@ -66,7 +66,7 @@ setup(
             'include_files': gen_data_files(
                 ['effects', 'keyboards'],
                 ['effects/__pycache__', 'keyboards/__pycache__'],
-            ) + ['config_default.ini', 'config_rb.ini', 'config_tiled.ini'],
+            ) + [('config_full.ini', 'config.ini')],
         }
     },
     executables=[
@@ -74,6 +74,11 @@ setup(
         Executable('keyboard.py', base='Win32GUI'),
     ],
 )
+
+cyrillic_chars = [
+    f'build/keyboard/keyboards/assets/letters/{i}.png' for i in
+    list(range(0x410, 0x450)) + [0x401, 0x451, 0x404, 0x406, 0x407, 0x490, 0x454, 0x456, 0x457, 0x491]
+] + ['build/keyboard/keyboards/assets/letters/cyr.png']
 
 timestamp = datetime.now().strftime('%Y%m%d')
 version = 1
@@ -86,8 +91,11 @@ zip_write(zip_file, '', ['build/keyboard'], [
     'build/keyboard/config_default.ini',
     'build/keyboard/config_rb.ini',
     'build/keyboard/config_tiled.ini',
+    'build/keyboard/keyboards/cyr.py',
     'build/keyboard/keyboards/cyr_qwerty.py',
     'build/keyboard/keyboards/lat_qwerty.py',
+    'build/keyboard/keyboards/ru_words.py',
+    'build/keyboard/keyboards/assets/words/ru',
     'build/keyboard/keyboards/rb.py',
     'build/keyboard/keyboards/assets/rb',
     'build/keyboard/keyboards/hs.py',
@@ -96,7 +104,7 @@ zip_write(zip_file, '', ['build/keyboard'], [
     'build/keyboard/keyboards/assets/tiles',
     'build/keyboard/effects/tiled.py',
     # 'build/keyboard/keyboard_debug.exe',
-])
+] + cyrillic_chars)
 zip_file.write('build/keyboard/config_default.ini', 'config.ini')
 zip_file.close()
 filename = filename.replace('keyboard', 'keyboard_qwerty')
@@ -109,6 +117,8 @@ zip_write(zip_file, '', ['build/keyboard'], [
     'build/keyboard/keyboards/lat.py',
     'build/keyboard/keyboards/cyr_qwerty.py',
     'build/keyboard/keyboards/lat_qwerty.py',
+    'build/keyboard/keyboards/ru_words.py',
+    'build/keyboard/keyboards/assets/words/ru',
     'build/keyboard/keyboards/rb.py',
     'build/keyboard/keyboards/assets/rb',
     'build/keyboard/keyboards/hs.py',
@@ -117,8 +127,8 @@ zip_write(zip_file, '', ['build/keyboard'], [
     'build/keyboard/keyboards/assets/tiles',
     'build/keyboard/effects/tiled.py',
     # 'build/keyboard/keyboard_debug.exe',
-])
-zip_file.write('build/keyboard/keyboards/cyr_qwerty.py', 'keyboards/cyr.py')
+] + cyrillic_chars)
+# zip_file.write('build/keyboard/keyboards/cyr_qwerty.py', 'keyboards/cyr.py')
 zip_file.write('build/keyboard/keyboards/lat_qwerty.py', 'keyboards/lat.py')
 zip_file.write('build/keyboard/config_default.ini', 'config.ini')
 zip_file.close()
@@ -159,9 +169,6 @@ zip_file.close()
 filename = filename.replace('keyboard_tiled', 'keyboard_full')
 zip_file = ZipFile(filename, 'w', ZIP_DEFLATED)
 zip_write(zip_file, '', ['build/keyboard_full'], [
-    'build/keyboard_full/config_default.ini',
-    'build/keyboard_full/config_rb.ini',
-    'build/keyboard_full/config_tiled.ini',
     'build/keyboard_full/keyboards/rb.py',
     'build/keyboard_full/keyboards/assets/rb',
     'build/keyboard_full/keyboards/hs.py',
@@ -171,5 +178,4 @@ zip_write(zip_file, '', ['build/keyboard_full'], [
     'build/keyboard_full/effects/tiled.py',
     # 'build/keyboard_full/keyboard_debug.exe',
 ])
-zip_file.write('build/keyboard_full/config_default.ini', 'config.ini')
 zip_file.close()

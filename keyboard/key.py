@@ -75,8 +75,7 @@ class Key(Sprite):
         if not isfile(path_string.format(folder, name)):
             name = name.split(':', 1)[0]
         if not isfile(path_string.format(folder, name)):
-            if folder == self.folder and name == self.name:
-                self.empty = True
+            self.empty = True
             folder, name = 'util', 'none'
         return path_string.format(folder, name)
 

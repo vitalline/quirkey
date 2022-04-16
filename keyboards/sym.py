@@ -17,3 +17,7 @@ layouts = {
         ['', '', '', 'lat_extra', 'en_words', 'lat', '32', 'cyr', 'ru_words', '', '', '', 'enter'],
     ],
 }
+
+alt_text = {
+    k: [[chr(int(string)) if string.isdigit() else '' for string in row] for row in v] for k, v in layouts.items()
+}

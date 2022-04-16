@@ -74,3 +74,7 @@ layouts = {
         ['words1', 'words2', 'pos', 'neg', 'sys', 'other', 'pronouns', 'lat', 'sym', 'cyr', 'ru_words/tags', 'enter', 'backspace'],
     ],
 }
+
+alt_text = {
+    k: [[string.replace('_..._', '...').replace('_', '/') for string in row] for row in v] for k, v in layouts.items()
+}

@@ -2,9 +2,8 @@
 /release/
 /venv/
 /util/
-/keyboards_qwerty/
 /keyboards_test/
-/opaque.png
-/regular.png
-/transparent.png
+/image_opaque.png
+/image_regular.png
+/image_transparent.png
 /config.ini

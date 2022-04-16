@@ -44,3 +44,7 @@ keymap = {
         ['shift+9', 'shift+0', 'shift+backslash', 'equal', 'capslock', '', 'space', '', '', 'minus', 'slash', 'shift+slash', 'enter'],
     ],
 }
+
+alt_text = {
+    k: [[chr(int(string)) if string.isdigit() else '' for string in row] for row in v] for k, v in layouts.items()
+}

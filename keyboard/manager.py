@@ -14,7 +14,7 @@ from cocos.scene import Scene
 if TYPE_CHECKING:
     from keyboard.keyboard import Keyboard
 
-EDIT_VARS = ('layouts', 'keymap')
+EDIT_VARS = ('layouts', 'keymap', 'alt_text')
 
 
 class KeyboardManager(CocosNode):
@@ -31,15 +31,19 @@ class KeyboardManager(CocosNode):
     def __init__(self) -> None:
         if self.is_loaded:
             invalidate_caches()
+            director.window.set_caption('Loading...')
             director.window.set_size(0, 0)
             self.remove(self.keyboards[self.keyboard_index])
         else:
-            director.init(width=0, height=0, autoscale=False, file_drops=True)
-            super().__init__()
             self.loaded = False
+            director.init(width=0, height=0, caption='Loading...', autoscale=False, file_drops=True)
+            super().__init__()
+            director.window.remove_handlers(director._default_event_handler)
         self.screen_image = None
         self.image_buffer = None
         self.image_history = []
+        self.text_buffer = ''
+        self.text_history = []
         self.next_key_position = [0, 0]
         self.config = ConfigParser()
         self.config.read('config.ini')
@@ -114,9 +118,10 @@ class KeyboardManager(CocosNode):
             keyboard.update_layout()
         self.keyboard_index = 0
         self.current_keyboard = self.keyboards[self.keyboard_index]
+        self.current_keyboard.update_image()
         director.window.set_size(self.keyboards[self.keyboard_index].window_width,
                                  self.keyboards[self.keyboard_index].window_height)
-        self.current_keyboard.update_image()
+        director.window.set_caption(f'Keyboard: {self.current_keyboard.name}/{self.current_keyboard.current_layout}')
         self.loaded = True
 
     @property
