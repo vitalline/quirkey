@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PIL import Image
 
 from keyboard import manager
@@ -25,6 +27,6 @@ layouts = {
 fixed_layout = True
 
 
-def postprocess(image: Image.Image) -> Image.Image:
+def postprocess(image: Optional[Image.Image]) -> Optional[Image.Image]:
     manager.keyboard.update_layout()
     return image

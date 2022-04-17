@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PIL import Image
 
 from keyboard import manager
@@ -47,7 +49,7 @@ space, top_left, top_right, bottom_left, bottom_right, horizontal, vertical = (
 )
 
 
-def postprocess(image: Image.Image) -> Image.Image:
+def postprocess(image: Optional[Image.Image]) -> Optional[Image.Image]:
     if image is None:
         image = space
     x, y = 0, 0

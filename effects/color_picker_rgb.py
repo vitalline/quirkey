@@ -9,7 +9,7 @@ current_char = 0
 char_scale = 1.5
 
 
-def process(image: Image.Image) -> Optional[Image.Image]:
+def process(image: Optional[Image.Image]) -> Optional[Image.Image]:
     keyboard = manager.keyboard
     if 'words' in keyboard.name or 'words' in keyboard.current_key.name:
         return image

@@ -8,6 +8,7 @@ from PIL import Image
 from cocos.batch import BatchNode
 from cocos.director import director
 from cocos.layer import ColorLayer
+from cocos.rect import Rect
 from cocos.sprite import Sprite
 from pyglet.image import load
 from pyglet.window import key, mouse
@@ -77,6 +78,7 @@ class Keyboard(ColorLayer):
             (manager.key_size + manager.key_spacing) * self.screen_height,
             (self.window_width - manager.border_width * 2)
         )
+        self.screen_hitbox = self.screen.get_AABB()
         self.highlight = Key(
             'cell',
             size=manager.key_size,
@@ -228,6 +230,12 @@ class Keyboard(ColorLayer):
 
     def nothing_selected(self) -> bool:
         return self.not_a_key(self.pressed_key_position)
+
+    def is_inside(self, pos: tuple[int, int], hitbox: Rect) -> bool:
+        return (
+            hitbox.left <= pos[0] < hitbox.right and
+            hitbox.bottom <= pos[1] < hitbox.top
+        )
 
     @property
     def current_key(self) -> Key:
@@ -510,6 +518,7 @@ class Keyboard(ColorLayer):
 
     def on_mouse_press(self, x, y, buttons, _modifiers) -> None:
         if buttons & (mouse.LEFT | mouse.RIGHT):
+            self.current_key_is_pressed = False
             pos = self.get_layout_position(x, y)
             if self.not_a_key(pos):
                 return
@@ -523,9 +532,14 @@ class Keyboard(ColorLayer):
         self.on_mouse_motion(x, y, dx, dy)  # move the highlight as well!
 
     def on_mouse_release(self, x, y, buttons, modifiers) -> None:
+        if self.is_inside((x, y), self.screen_hitbox):
+            if buttons & mouse.LEFT:
+                self.update_image()
+            if buttons & mouse.RIGHT:
+                pyperclip.copy(manager.text_buffer)
+            return
         if self.nothing_selected():
             return
-        # TODO: left-clicking the screen copies the image, right-clicking copies alt text
         if buttons & (mouse.LEFT | mouse.RIGHT):
             current_pos = self.get_layout_position(x, y)
             pressed_pos = self.pressed_key_position
