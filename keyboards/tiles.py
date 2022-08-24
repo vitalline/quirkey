@@ -9,8 +9,8 @@ preview_keys = {
 fixed_layout = True
 layouts = {
     'basic': [
-        ['tile_corner', 'tile_line', 'rotate_cw', 'dir_u', 'rotate_cc'],
-        ['tile_corners', 'tile_t', 'dir_l', 'clear', 'dir_r'],
-        ['tile_bridge', 'tile_cross', 'tile_empty', 'dir_d', 'rotate_flip'],
+        ['tile_corner', 'tile_line', '_rotate_cc', '_dir_u', '_rotate_cw'],
+        ['tile_corners', 'tile_t', '_dir_l', '_clear', '_dir_r'],
+        ['tile_bridge', 'tile_cross', '_flip_x', '_dir_d', '_flip_y'],
     ],
 }
