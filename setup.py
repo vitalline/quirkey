@@ -82,7 +82,7 @@ cyrillic_chars = [
 
 timestamp = datetime.now().strftime('%Y%m%d')
 version = 1
-filename = 'release/keyboard.win-amd64-3.9-{}v{}.zip'
+filename = 'release/keyboard.win-amd64-3.11-{}v{}.zip'
 while isfile(filename.format(timestamp, version)):
     version += 1
 filename = filename.format(timestamp, version)

@@ -1,5 +1,5 @@
 /build/
-/release/
+/release*/
 /venv/
 /util/
 /keyboards_test/

@@ -8,6 +8,7 @@
       <excludeFolder url="file://$MODULE_DIR$/util/backup" />
       <excludeFolder url="file://$MODULE_DIR$/keyboards_qwerty" />
       <excludeFolder url="file://$MODULE_DIR$/keyboards_test" />
+      <excludeFolder url="file://$MODULE_DIR$/release-3.9" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11 (quirkey)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
