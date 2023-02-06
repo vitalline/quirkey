@@ -136,21 +136,26 @@ class Keyboard(ColorLayer):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])
             old_name = self.layouts[self.current_layout][row][col]
+            asset_folder = self.asset_folder
+            new_name = old_name
             if type(old_name) is str:
-                path_name = old_name.split(':', 1)[0]
-                layout_name = path_name.split('/', 1)[0]
-                for name in old_name, path_name, layout_name:
-                    if name in manager.preview_keys:
-                        _, keyboard = manager.get_keyboard(layout_name)
-                        asset_folder = keyboard.asset_folder if keyboard is not None else self.asset_folder
-                        new_name = manager.preview_keys[name]
-                        break
-                else:
-                    asset_folder = self.asset_folder
-                    new_name = self.preview_keys[old_name] if old_name in self.preview_keys else old_name
-            else:
-                asset_folder = self.asset_folder
-                new_name = old_name
+                if old_name[:1] == '/':
+                    key_name = old_name[1:]
+                    layout_name = key_name.split(':', 1)[0]
+                    keyboard_name = layout_name.split('/', 1)[0]
+                    for name in key_name, layout_name, keyboard_name:
+                        if name in manager.preview_keys:
+                            _, keyboard = manager.get_keyboard(keyboard_name)
+                            asset_folder = keyboard.asset_folder if keyboard is not None else self.asset_folder
+                            new_name = manager.preview_keys[name]
+                            break
+                if old_name[:2] == '~/':
+                    key_name = old_name[2:]
+                    layout_name = key_name.split(':', 1)[0]
+                    for name in key_name, layout_name:
+                        if name in self.preview_keys:
+                            new_name = self.preview_keys[name]
+                            break
             self.key_sprites[row][col].rename(old_name)
             self.current_key_position = (row, col)
             self.current_key_is_pressed = False
@@ -549,24 +554,28 @@ class Keyboard(ColorLayer):
                 self.current_key_is_pressed = True
                 # TODO: make "key is preview?" into a convenience method (or at least have the data cached somewhere)
                 key_name = self.get_key(pressed_pos).name
-                path_name = key_name.split(':', 1)[0]
-                layout_path = path_name.split('/', 1)
-                layout_name = layout_path[0]
-                for name in key_name, path_name, layout_name:
-                    if name in manager.preview_keys:
-                        name, layout = layout_name, (layout_path[1] if len(layout_path) > 1 else '')
-                        index, keyboard = manager.get_keyboard(name)
-                        if layout in keyboard.layouts:
-                            keyboard.current_layout = layout
-                        manager.switch_to(index)
-                        return
-                if key_name in self.preview_keys:
-                    layout = key_name.split(':', 1)[0]
-                    if layout in self.layouts:
-                        self.current_layout = layout
-                    self.update_layout()
+                if key_name[:1] == '/':
+                    key_name = key_name[1:]
+                    layout_name = key_name.split(':', 1)[0]
+                    layout_path = layout_name.split('/', 1)
+                    keyboard_name = layout_path[0]
+                    for name in key_name, layout_name, keyboard_name:
+                        if name in manager.preview_keys:
+                            name, layout = keyboard_name, (layout_path[1] if len(layout_path) > 1 else '')
+                            index, keyboard = manager.get_keyboard(name)
+                            if layout in keyboard.layouts:
+                                keyboard.current_layout = layout
+                            manager.switch_to(index)
+                            break
                     return
-                elif key_name == self.backspace_key:
+                if key_name[:2] == '~/':
+                    key_name = key_name[2:]
+                    layout_name = key_name.split(':', 1)[0]
+                    if layout_name in self.layouts:
+                        self.current_layout = layout_name
+                        self.update_layout()
+                    return
+                if key_name == self.backspace_key:
                     if len(manager.image_history) == 0:
                         return
                     if buttons & mouse.LEFT and not modifiers & key.MOD_SHIFT:

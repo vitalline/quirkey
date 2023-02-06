@@ -20,7 +20,7 @@ layouts = {
         ['71', '52', '53', '54', '55'],
         ['66', '56', '57', '97', '98'],
         ['sym', '99', '100', '101', '102'],
-        ['en_words', 'lat', 'lat_extra', 'cyr', 'ru_words'],
+        ['/en_words', '/lat', '/lat_extra', '/cyr', '/ru_words'],
     ],
 }
 fixed_layout = True

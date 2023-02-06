@@ -21,7 +21,7 @@ layouts = {
         [f'cell:h{i * 10}' for i in range(24, 36)],
         [f'cell:s{round(i * 100 / 11)}' for i in range(12)],
         [f'cell:v{round(i * 100 / 11)}' for i in range(12)],
-        ['', '', '', 'en_words', 'lat', 'lat_extra', 'sym', 'cyr', 'ru_words'],
+        ['', '', '', '/en_words', '/lat', '/lat_extra', '/sym', '/cyr', '/ru_words'],
     ],
 }
 fixed_layout = True

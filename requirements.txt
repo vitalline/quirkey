@@ -1,11 +1,4 @@
-cx-Freeze~=6.8.2
+Pillow~=9.4.0
+pywin32~=305
 cocos2d~=0.6.9
-pyglet~=1.5.21
-pip~=21.3.1
-future~=0.18.2
-six~=1.16.0
-pefile~=2021.9.3
-cachetools~=4.2.4
-setuptools~=58.5.3
-pywin32~=302
-Pillow~=8.4.0
+pyglet~=1.5.27
