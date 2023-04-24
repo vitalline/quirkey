@@ -495,7 +495,7 @@ class Keyboard(ColorLayer):
 
     def save_layout(self) -> None:
         self.map_layouts()
-        layout_edit = open(f'keyboards/{self.name}_edit.py', 'w')
+        layout_edit = open(f'keyboards/{self.name}_edit.py', 'w', encoding='utf-8')
         for var in EDIT_VARS:
             layout_edit.write(self.pretty_print(var))
         layout_edit.close()
