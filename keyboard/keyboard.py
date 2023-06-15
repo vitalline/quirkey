@@ -1,5 +1,6 @@
 from io import BytesIO
 from itertools import product
+from math import lcm
 from os.path import abspath, relpath, splitext
 from typing import Optional, Union
 
@@ -47,7 +48,10 @@ class Keyboard(ColorLayer):
         self.alt_text = getattr(module, 'alt_text', dict())
         self.mapping = dict()
         self.map_layouts()
-        self.resample = getattr(module, 'resample', manager.resample)
+        self.resample = getattr(module, 'resample', manager.resample - manager.use_old_nearest)
+        self.use_old_nearest = self.resample == -1
+        if self.use_old_nearest:
+            self.resample = 0
         self.preprocess = getattr(module, 'preprocess', manager.preprocess)
         self.postprocess = getattr(module, 'postprocess', manager.postprocess)
         self.window_width = self.board_width \
@@ -131,7 +135,10 @@ class Keyboard(ColorLayer):
         Updates the layout on screen according to the ``self.layouts`` variable.
         """
         key_preprocess = self.preprocess if manager.preprocess_keys else lambda x: x
-        max_size = max(manager.key_size * manager.pressed_key_scale, manager.char_size)
+        if self.resample == 0 and not self.use_old_nearest:
+            max_size = lcm(manager.key_size, manager.char_size)
+        else:
+            max_size = max(manager.key_size * manager.pressed_key_scale, manager.char_size)
         for row, col in product(range(self.board_height), range(self.board_width)):
             if self.key_sprites[row][col].parent == self.keys:
                 self.keys.remove(self.key_sprites[row][col])

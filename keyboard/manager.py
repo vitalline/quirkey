@@ -71,6 +71,9 @@ class KeyboardManager(CocosNode):
         self.pressed_key_scale = self.load_value('pressed_key_scale', 1.25)
         self.cursor_color = self.load_value('cursor_color', (255, 255, 255, 51))
         self.resample = self.load_value('resample', Image.BILINEAR)
+        self.use_old_nearest = self.resample == -1
+        if self.use_old_nearest:
+            self.resample = 0
         if not self.is_loaded:
             self.preprocess_modules, self.postprocess_modules, self.preprocess = dict(), dict(), lambda x: x
             self.keyboard_modules, self.keyboard_edit_modules, self.postprocess = dict(), dict(), lambda x: x
