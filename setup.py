@@ -48,6 +48,7 @@ setup(
                 [
                     'effects/__pycache__', 'keyboards/__pycache__',
                     'effects/color_picker_old.py', 'effects/color_picker_rgb.py',
+                    'keyboards/color_picker_old.py', 'keyboards/color_picker_rgb.py',
                     'effects/glitch.py',
                 ],
             ) + ['config_default.ini', 'config_rb.ini', 'config_tiled.ini'],
@@ -72,6 +73,7 @@ setup(
                 [
                     'effects/__pycache__', 'keyboards/__pycache__',
                     'effects/color_picker_old.py',
+                    'keyboards/color_picker_old.py',
                 ],
             ) + [('config_full.ini', 'config.ini')],
         }
