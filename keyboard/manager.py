@@ -1,5 +1,6 @@
 import os
 from configparser import ConfigParser, Error
+from enum import Enum
 from glob import iglob
 from importlib import import_module, invalidate_caches, reload
 from traceback import print_exc
@@ -15,6 +16,12 @@ if TYPE_CHECKING:
     from keyboard.keyboard import Keyboard
 
 EDIT_VARS = ('layouts', 'keymap', 'alt_text')
+
+
+class OutputMode(Enum):
+    REGULAR = 'regular'
+    OPAQUE = 'opaque'
+    TRANSPARENT = 'transparent'
 
 
 class KeyboardManager(CocosNode):
@@ -52,13 +59,16 @@ class KeyboardManager(CocosNode):
         except Error:
             self.load_order = [name[10:-3] for name in iglob('keyboards/*.py')]
         self.load_order = [name.strip() for name in self.load_order]
-        self.key_size = self.load_value('key_size', 0)
-        self.char_size = self.load_value('char_size', 0)
-        if self.key_size == 0 and self.char_size == 0:
+        self.key_size_value = self.load_value('key_size', 0)
+        self.char_size_value = self.load_value('char_size', 0)
+        self.key_size, self.char_size = self.key_size_value, self.char_size_value
+        # If neither size value is set to a valid size, use a default size of 64
+        if self.key_size_value <= 0 and self.char_size_value <= 0:
             self.key_size, self.char_size = 64, 64
-        elif self.key_size == 0:
+        # If one value isn't set to a valid size, use the other value instead
+        elif self.key_size_value <= 0:
             self.key_size = self.char_size
-        elif self.char_size == 0:
+        elif self.char_size_value <= 0:
             self.char_size = self.key_size
         self.key_spacing = self.load_value('key_spacing', 4)
         self.border_width = self.load_value('border_width', 16)
@@ -70,8 +80,10 @@ class KeyboardManager(CocosNode):
         self.pressed_key_color = self.load_value('pressed_key_color', (102, 102, 102))
         self.pressed_key_scale = self.load_value('pressed_key_scale', 1.25)
         self.cursor_color = self.load_value('cursor_color', (255, 255, 255, 51))
-        self.resample = self.load_value('resample', Image.BILINEAR)
-        self.use_old_nearest = self.resample == -1
+        self.resample_value = self.load_value('resample', Image.BILINEAR)
+        self.resample = self.resample_value
+        # If resample value is -1, store that info for future reference and use a resample of 0
+        self.use_old_nearest = self.resample_value == -1
         if self.use_old_nearest:
             self.resample = 0
         if not self.is_loaded:
@@ -79,7 +91,7 @@ class KeyboardManager(CocosNode):
             self.keyboard_modules, self.keyboard_edit_modules, self.postprocess = dict(), dict(), lambda x: x
         self.preprocess_keys = self.load_value('preprocess_keys', False)
         self.postprocess_screen = self.load_value('postprocess_screen', True)
-        self.output_mode = 'regular'
+        self.output_mode = OutputMode.REGULAR
         self.keyboards = []
         self.keyboard_index = 0
         self.keyboard_dict = {}
@@ -124,7 +136,7 @@ class KeyboardManager(CocosNode):
         self.current_keyboard.update_image()
         director.window.set_size(self.keyboards[self.keyboard_index].window_width,
                                  self.keyboards[self.keyboard_index].window_height)
-        director.window.set_caption(f'Keyboard: {self.current_keyboard.name}/{self.current_keyboard.current_layout}')
+        director.window.set_caption(f'Keyboard: /{self.current_keyboard.name}/{self.current_keyboard.current_layout}')
         self.loaded = True
 
     @property

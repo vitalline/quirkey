@@ -45,7 +45,11 @@ setup(
             'includes': ['win32com'],
             'include_files': gen_data_files(
                 ['effects', 'keyboards'],
-                ['effects/glitch.py', 'effects/__pycache__', 'keyboards/__pycache__'],
+                [
+                    'effects/__pycache__', 'keyboards/__pycache__',
+                    'effects/color_picker_old.py', 'effects/color_picker_rgb.py',
+                    'effects/glitch.py',
+                ],
             ) + ['config_default.ini', 'config_rb.ini', 'config_tiled.ini'],
         }
     },
@@ -65,7 +69,10 @@ setup(
             'includes': ['glitch_this', 'win32com'],
             'include_files': gen_data_files(
                 ['effects', 'keyboards'],
-                ['effects/__pycache__', 'keyboards/__pycache__'],
+                [
+                    'effects/__pycache__', 'keyboards/__pycache__',
+                    'effects/color_picker_old.py',
+                ],
             ) + [('config_full.ini', 'config.ini')],
         }
     },
