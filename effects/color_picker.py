@@ -1,12 +1,13 @@
+from colorsys import hsv_to_rgb
+from math import ceil
 from typing import Optional
 
-from PIL import Image, ImageChops, ImageColor, ImageOps
+from PIL import Image, ImageChops, ImageOps
 
 from keyboard import manager
 
 overlay_color = ['0', '50.0', '100.0']
 char_scale = 1.5
-round_to_even = True
 
 
 def process(image: Optional[Image.Image]) -> Optional[Image.Image]:
@@ -48,10 +49,8 @@ def process(image: Optional[Image.Image]) -> Optional[Image.Image]:
                     image = ImageOps.expand(image, round(image.width * (char_scale - 1)))
                 else:
                     image = ImageOps.expand(image, round(image.width * (char_scale - 1) / 3))
-    h, s, v = tuple(color)
-    color = ImageColor.getrgb(f'hsv({h}, {s}%, {v}%)')
-    if round_to_even:
-        color = tuple(x + (x % 2 and x < 0xff) for x in color)
-    overlay = Image.new('RGB', (image.width, image.height), color)
+    h, s, v = tuple(map(float, color))
+    color = tuple(ceil(x * 255) for x in hsv_to_rgb(h / 360, s / 100, v / 100))
+    overlay = Image.new('RGB', (image.width, image.height), color)  # type: ignore
     overlay.putalpha(255)
     return ImageChops.multiply(image, overlay)
